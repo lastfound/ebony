@@ -1,0 +1,43 @@
+/* ============================================
+   EBONY CAFE & GALLERY — CSS Variables
+   ============================================ */
+:root {
+  --color-bg:         #FAF9F6;
+  --color-card:       #FFFFFF;
+  --color-text:       #1A1A1A;
+  --color-muted:      #6B6B6B;
+  --color-accent:     #C9A96E;
+  --color-accent-dk:  #9B7E4F;
+  --color-border:     #E8E4DC;
+  --color-sidebar:    #F5F2EC;
+  --color-danger:     #C0392B;
+  --color-success:    #4A7C59;
+
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans:  'Inter', 'DM Sans', sans-serif;
+
+  --shadow-card:  0 2px 12px rgba(0,0,0,0.06);
+  --shadow-modal: 0 8px 40px rgba(0,0,0,0.18);
+  --transition:   all 0.2s ease;
+
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   16px;
+  --radius-full: 999px;
+}
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+body.dark-mode {
+  --color-bg:         #121212;
+  --color-card:       #1E1E1E;
+  --color-text:       #F0F0F0;
+  --color-muted:      #A0A0A0;
+  --color-accent:     #E8CA94; 
+  --color-accent-dk:  #C9A96E;
+  --color-border:     #333333;
+  --color-sidebar:    #181818;
+  --shadow-card:      0 4px 20px rgba(0,0,0,0.4);
+  --shadow-modal:     0 8px 40px rgba(0,0,0,0.6);
+}
