@@ -11,6 +11,11 @@ export const adminLogout = async () => {
   return res.data;
 };
 
+export const updateAdminProfile = async (data) => {
+  const res = await api.put('/admin/profile', data);
+  return res.data;
+};
+
 /** === DASHBOARD === */
 export const getDashboardData = async () => {
   const res = await api.get('/admin/dashboard');
@@ -57,11 +62,18 @@ export const getAdminMenus = async () => {
 };
 
 export const createMenu = async (data) => {
-  const res = await api.post('/admin/menus', data);
+  const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+  const res = await api.post('/admin/menus', data, { headers });
   return res.data;
 };
 
 export const updateMenu = async (id, data) => {
+  const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+  if (data instanceof FormData) {
+    data.append('_method', 'PUT');
+    const res = await api.post(`/admin/menus/${id}`, data, { headers });
+    return res.data;
+  }
   const res = await api.put(`/admin/menus/${id}`, data);
   return res.data;
 };
@@ -83,11 +95,18 @@ export const getAdminEvents = async () => {
 };
 
 export const createEvent = async (data) => {
-  const res = await api.post('/admin/events', data);
+  const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+  const res = await api.post('/admin/events', data, { headers });
   return res.data;
 };
 
 export const updateEvent = async (id, data) => {
+  const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+  if (data instanceof FormData) {
+    data.append('_method', 'PUT');
+    const res = await api.post(`/admin/events/${id}`, data, { headers });
+    return res.data;
+  }
   const res = await api.put(`/admin/events/${id}`, data);
   return res.data;
 };

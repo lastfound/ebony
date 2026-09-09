@@ -18,9 +18,10 @@ function App() {
   useEffect(() => {
     AOS.init({
       duration: 800,
-      once: true,
+      once: false,
+      mirror: true,
       easing: 'ease-out-cubic',
-      offset: 50,
+      offset: 60,
     });
   }, []);
 

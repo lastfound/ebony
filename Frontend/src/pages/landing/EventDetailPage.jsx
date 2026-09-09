@@ -85,11 +85,40 @@ export default function EventDetailPage() {
       {/* Body Event */}
       <div style={{ backgroundColor: '#fff', padding: '40px 24px 80px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <img 
-            src={event.image_url} 
-            alt={event.title} 
-            style={{ width: '100%', aspectRatio: '16/9', objectFit: 'cover', borderRadius: 'var(--radius-lg)', marginBottom: '40px', boxShadow: 'var(--shadow-card)' }} 
-          />
+          <div style={{
+            position: 'relative',
+            overflow: 'hidden',
+            maxHeight: '480px',
+            backgroundColor: '#141414',
+            borderRadius: 'var(--radius-lg)',
+            marginBottom: '40px',
+            boxShadow: 'var(--shadow-card)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <div style={{
+              position: 'absolute',
+              inset: '-10px',
+              backgroundImage: `url(${event.image_url})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(20px) brightness(0.5)',
+              opacity: 0.75,
+              transform: 'scale(1.15)',
+            }} />
+            <img 
+              src={event.image_url} 
+              alt={event.title} 
+              style={{ 
+                position: 'relative',
+                zIndex: 1,
+                width: '100%', 
+                maxHeight: '480px', 
+                objectFit: 'contain' 
+              }} 
+            />
+          </div>
           
           <div style={{ lineHeight: 1.8, color: 'var(--color-text)', fontSize: '16px' }}>
             <p style={{ marginBottom: '24px' }}>{event.description}</p>

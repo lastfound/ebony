@@ -3,14 +3,12 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import MenuAdminCard from '../../components/admin/MenuAdminCard';
 import EventAdminCard from '../../components/admin/EventAdminCard';
 import Modal from '../../components/ui/Modal';
+import {
+  getAdminMenus, createMenu, updateMenu, deleteMenu, toggleMenuStatus,
+  getAdminEvents, createEvent, updateEvent, deleteEvent,
+} from '../../api/adminApi';
 
 const CATEGORIES = ['All Items', 'Starters', 'Mains', 'Desserts', 'Beverages'];
-
-const SAMPLE_MENUS = [
-  { id: 1, name: 'Matcha Mille Crêpe', description: 'Twenty layers of delicate crêpes layered with Kyoto matcha cream.', price: 140000, category: 'Desserts', image_url: 'https://images.unsplash.com/photo-1579954115545-a95591f28bfc?w=600&q=80', is_available: false },
-  { id: 2, name: 'Truffle Arancini', description: 'Crispy risotto bites infused with black truffle, served over roasted garlic aioli.', price: 160000, category: 'Starters', image_url: 'https://images.unsplash.com/photo-1541529086526-db283c563270?w=600&q=80', is_available: true },
-  { id: 3, name: 'Pan-Seared Scallops', description: 'Cauliflower purée, brown butter caper sauce, and crispy prosciutto crumbles.', price: 340000, category: 'Mains', image_url: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?w=600&q=80', is_available: true },
-];
 
 export default function MenuManagementPage() {
   const [menus, setMenus] = useState([]);
@@ -19,26 +17,98 @@ export default function MenuManagementPage() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [formLoading, setFormLoading] = useState(false);
+
+  const fetchData = () => {
+    getAdminMenus().then(data => setMenus(Array.isArray(data) ? data : [])).catch(() => setMenus([]));
+    getAdminEvents().then(data => setEvents(Array.isArray(data) ? data : [])).catch(() => setEvents([]));
+  };
 
   useEffect(() => {
-    // In a real application, fetch from APIs
-    setMenus(SAMPLE_MENUS);
-    setEvents([]);
+    fetchData();
   }, []);
 
   const filteredMenus = activeTab === 'All Items'
     ? menus
     : menus.filter(m => m.category === activeTab);
 
-  const handleToggle = (id, currentStatus) => {
-    setMenus(prev => prev.map(m =>
-      m.id === id ? { ...m, is_available: !currentStatus } : m
-    ));
+  const handleToggle = async (id, currentStatus) => {
+    try {
+      await toggleMenuStatus(id, !currentStatus);
+      setMenus(prev => prev.map(m =>
+        m.id === id ? { ...m, is_available: !currentStatus } : m
+      ));
+    } catch {
+      alert('Gagal mengubah status menu.');
+    }
   };
 
-  const handleDeleteMenu = (id) => {
+  const handleDeleteMenu = async (id) => {
     if (!window.confirm('Yakin hapus menu ini?')) return;
-    setMenus(prev => prev.filter(m => m.id !== id));
+    try {
+      await deleteMenu(id);
+      setMenus(prev => prev.filter(m => m.id !== id));
+    } catch {
+      alert('Gagal menghapus menu.');
+    }
+  };
+
+  const handleDeleteEvent = async (id) => {
+    if (!window.confirm('Yakin hapus event ini?')) return;
+    try {
+      await deleteEvent(id);
+      setEvents(prev => prev.filter(e => e.id !== id));
+    } catch {
+      alert('Gagal menghapus event.');
+    }
+  };
+
+  const handleMenuSubmit = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    const fd = new FormData(e.target);
+
+    try {
+      if (editItem) {
+        await updateMenu(editItem.id, fd);
+      } else {
+        await createMenu(fd);
+      }
+      setShowMenuModal(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal menyimpan menu.');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleEventSubmit = async (e) => {
+    e.preventDefault();
+    setFormLoading(true);
+    const fd = new FormData(e.target);
+
+    // Combine date + time into datetime
+    const dateVal = fd.get('date');
+    const timeVal = fd.get('time');
+    if (dateVal && timeVal) {
+      fd.set('date', `${dateVal}T${timeVal}`);
+    }
+    fd.delete('time');
+
+    try {
+      if (editItem) {
+        await updateEvent(editItem.id, fd);
+      } else {
+        await createEvent(fd);
+      }
+      setShowEventModal(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Gagal menyimpan event.');
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   return (
@@ -100,27 +170,27 @@ export default function MenuManagementPage() {
                 key={event.id}
                 event={event}
                 onEdit={() => { setEditItem(event); setShowEventModal(true); }}
-                onDelete={() => {}}
+                onDelete={() => handleDeleteEvent(event.id)}
               />
             ))}
           </div>
         )}
       </div>
 
-      {/* Modals */}
+      {/* Modal Menu */}
       {showMenuModal && (
         <Modal title={editItem ? 'Edit Menu' : 'Add New Menu'} onClose={() => setShowMenuModal(false)}>
           <div style={{ padding: '10px 0 20px', textAlign: 'left' }}>
-            <form className="admin-form" onSubmit={(e) => { e.preventDefault(); setShowMenuModal(false); }}>
+            <form className="admin-form" onSubmit={handleMenuSubmit}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Menu Name *</label>
-                <input type="text" className="form-input" defaultValue={editItem?.name || ''} placeholder="e.g. Pan-Seared Scallops" required />
+                <input type="text" name="name" className="form-input" defaultValue={editItem?.name || ''} placeholder="e.g. Pan-Seared Scallops" required />
               </div>
 
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Category *</label>
-                  <select className="form-input" defaultValue={editItem?.category || ''} required>
+                  <select name="category" className="form-input" defaultValue={editItem?.category || ''} required>
                     <option value="">-- Select Category --</option>
                     <option value="Starters">Starters</option>
                     <option value="Mains">Mains</option>
@@ -130,64 +200,69 @@ export default function MenuManagementPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Price (Rp) *</label>
-                  <input type="number" className="form-input" defaultValue={editItem?.price || ''} placeholder="e.g. 150000" required />
+                  <input type="number" name="price" className="form-input" defaultValue={editItem?.price || ''} placeholder="e.g. 150000" required />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Upload Image</label>
-                <input type="file" className="form-input" accept="image/*" />
+                <input type="file" name="image" className="form-input" accept="image/*" />
                 {editItem?.image_url && <small style={{ color: 'var(--color-muted)', display: 'block', marginTop: '4px' }}>Saat ini ada gambar tersimpan.</small>}
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label">Description</label>
-                <textarea className="form-input form-textarea" rows="3" defaultValue={editItem?.description || ''} placeholder="Short description about the dish..."></textarea>
+                <textarea name="description" className="form-input form-textarea" rows="3" defaultValue={editItem?.description || ''} placeholder="Short description about the dish..."></textarea>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn--outline-dark" onClick={() => setShowMenuModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn--primary">Save Menu</button>
+                <button type="submit" className="btn btn--primary" disabled={formLoading}>
+                  {formLoading ? 'Saving...' : 'Save Menu'}
+                </button>
               </div>
             </form>
           </div>
         </Modal>
       )}
 
+      {/* Modal Event */}
       {showEventModal && (
         <Modal title={editItem ? 'Edit Event' : 'Add New Event'} onClose={() => setShowEventModal(false)}>
           <div style={{ padding: '10px 0 20px', textAlign: 'left' }}>
-            <form className="admin-form" onSubmit={(e) => { e.preventDefault(); setShowEventModal(false); }}>
+            <form className="admin-form" onSubmit={handleEventSubmit}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Event Title *</label>
-                <input type="text" className="form-input" defaultValue={editItem?.title || ''} placeholder="e.g. Live Jazz Evening" required />
+                <input type="text" name="title" className="form-input" defaultValue={editItem?.title || ''} placeholder="e.g. Live Jazz Evening" required />
               </div>
 
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Date *</label>
-                  <input type="date" className="form-input" defaultValue={editItem ? editItem.date.split('T')[0] : ''} required />
+                  <input type="date" name="date" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')[0] : ''} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Time *</label>
-                  <input type="time" className="form-input" defaultValue={editItem ? editItem.date.split('T')[1]?.substring(0,5) : ''} required />
+                  <input type="time" name="time" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')[1]?.substring(0,5) : ''} required />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Upload Cover Image</label>
-                <input type="file" className="form-input" accept="image/*" />
+                <input type="file" name="image" className="form-input" accept="image/*" />
                 {editItem?.image_url && <small style={{ color: 'var(--color-muted)', display: 'block', marginTop: '4px' }}>Saat ini ada cover tersimpan.</small>}
               </div>
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label">Description / Details</label>
-                <textarea className="form-input form-textarea" rows="4" defaultValue={editItem?.description || ''} placeholder="Information about the event..."></textarea>
+                <textarea name="description" className="form-input form-textarea" rows="4" defaultValue={editItem?.description || ''} placeholder="Information about the event..."></textarea>
               </div>
 
               <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn--outline-dark" onClick={() => setShowEventModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn--primary">Save Event</button>
+                <button type="submit" className="btn btn--primary" disabled={formLoading}>
+                  {formLoading ? 'Saving...' : 'Save Event'}
+                </button>
               </div>
             </form>
           </div>

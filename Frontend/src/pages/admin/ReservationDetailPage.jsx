@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import { getReservationDetail, confirmArrival } from '../../api/adminApi';
 
 const SAMPLE_DETAIL = {
   id: 1,
@@ -32,22 +33,6 @@ const SAMPLE_DETAIL = {
       qty: 2,
       image_url: "https://images.unsplash.com/photo-1548849506-68fb767df56c?w=150&q=80"
     },
-    {
-      id: 2,
-      name: "Maranggi Satay",
-      description: "Sate daging sapi dengan bumbu rempah yang manis dan gurih",
-      price: 75000,
-      qty: 1,
-      image_url: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=150&q=80"
-    },
-    {
-      id: 3,
-      name: "Churos",
-      description: "Snack manis khas Portugis dengan saus celup coklat",
-      price: 35000,
-      qty: 1,
-      image_url: "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=150&q=80"
-    }
   ]
 };
 
@@ -60,17 +45,25 @@ export default function ReservationDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
-    // Simulated API call
-    setTimeout(() => {
-      setData(SAMPLE_DETAIL);
-      setArrived(SAMPLE_DETAIL.is_arrived);
-      setLoading(false);
-    }, 400);
+    getReservationDetail(id)
+      .then(d => {
+        setData(d);
+        setArrived(d.is_arrived);
+      })
+      .catch(() => {
+        setData(SAMPLE_DETAIL);
+        setArrived(SAMPLE_DETAIL.is_arrived);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
-  const handleConfirmArrival = () => {
-    // API logic here
-    setArrived(true);
+  const handleConfirmArrival = async () => {
+    try {
+      await confirmArrival(id);
+      setArrived(true);
+    } catch {
+      alert('Gagal mengkonfirmasi kedatangan.');
+    }
   };
 
   if (loading) return <AdminLayout><p>Loading...</p></AdminLayout>;

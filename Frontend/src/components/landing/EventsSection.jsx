@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getEvents } from '../../api/publicApi';
 import EventCard from './EventCard';
+import AOS from 'aos';
 
 const SAMPLE_EVENTS = [
   {
@@ -41,16 +42,22 @@ export default function EventsSection() {
       .catch(() => setEvents(SAMPLE_EVENTS));
   }, []);
 
+  useEffect(() => {
+    if (events.length > 0) {
+      AOS.refresh();
+    }
+  }, [events]);
+
   return (
     <section className="events" id="events">
-      <div style={{ textAlign: 'center', marginBottom: 48 }} data-aos="fade-up">
-        <span className="about__label">WHAT'S ON</span>
-        <h2 className="about__title" style={{ marginBottom: 0 }}>Upcoming Events</h2>
+      <div className="section-header" data-aos="fade-up">
+        <span className="section-label">WHAT'S ON</span>
+        <h2 className="section-title">Upcoming Events</h2>
       </div>
 
       <div className="events__grid">
         {events.map((event, index) => (
-          <div key={event.id} data-aos="fade-up" data-aos-delay={index * 100}>
+          <div key={event.id} className="events__grid-item" data-aos="fade-up" data-aos-delay={index * 100}>
             <EventCard event={event} />
           </div>
         ))}

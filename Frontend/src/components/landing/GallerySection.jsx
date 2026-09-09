@@ -29,14 +29,14 @@ const GALLERY_IMAGES = [
 export default function GallerySection() {
   return (
     <section className="gallery" id="gallery">
-      <div className="section-header">
+      <div className="section-header" data-aos="fade-up">
         <span className="section-label">AN AUTHENTIC EXPERIENCE</span>
         <h2 className="section-title">An authentic experience</h2>
       </div>
 
       <div className="gallery__grid">
-        {GALLERY_IMAGES.map((img) => (
-          <div className="gallery__item" key={img.id}>
+        {GALLERY_IMAGES.map((img, index) => (
+          <div className="gallery__item" key={img.id} data-aos="fade-up" data-aos-delay={index * 100}>
             <img src={img.src} alt={img.alt} loading="lazy" />
           </div>
         ))}

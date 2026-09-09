@@ -33,14 +33,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // In a real app, use the actual API call
-    // getDashboardData().then(d => setData(d)).finally(() => setLoading(false));
-    
-    // Using sample data for layout demonstration based on the design
-    setTimeout(() => {
-      setData(SAMPLE_DASHBOARD);
-      setLoading(false);
-    }, 500);
+    getDashboardData()
+      .then(d => setData(d))
+      .catch(() => setData(SAMPLE_DASHBOARD))
+      .finally(() => setLoading(false));
   }, []);
 
   return (

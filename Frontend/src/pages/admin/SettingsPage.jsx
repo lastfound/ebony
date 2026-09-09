@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import Toggle from '../../components/ui/Toggle';
+import { updateAdminProfile } from '../../api/adminApi';
 
 export default function SettingsPage() {
   const { admin, login } = useAuth();
@@ -14,8 +15,16 @@ export default function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   
+  useEffect(() => {
+    if (admin?.name) {
+      setUsername(admin.name);
+    }
+  }, [admin]);
+
   useEffect(() => {
     // Check initial theme from localStorage or body class
     const savedTheme = localStorage.getItem('theme');
@@ -37,22 +46,39 @@ export default function SettingsPage() {
     }
   };
 
-  const handleProfileSave = (e) => {
+  const handleProfileSave = async (e) => {
     e.preventDefault();
-    // Simulasi update ke backend
-    
-    // 1. Update auth context lokal agar nama di sidebar langsung berubah
-    const updatedUser = { ...admin, name: username };
-    const token = localStorage.getItem('admin_token'); 
-    login(updatedUser, token);
-    
-    // 2. Clear password fields
-    setCurrentPassword('');
-    setNewPassword('');
-    
-    // 3. Show success message
-    setSuccessMsg('Profil dan pengaturan keamanan berhasil diperbarui!');
-    setTimeout(() => setSuccessMsg(''), 4000);
+    setLoading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const payload = {
+        name: username,
+      };
+      if (newPassword) {
+        payload.current_password = currentPassword;
+        payload.new_password = newPassword;
+      }
+
+      const res = await updateAdminProfile(payload);
+      
+      // Update local auth context
+      const token = localStorage.getItem('admin_token');
+      if (res.user) {
+        login(res.user, token);
+      }
+      
+      setCurrentPassword('');
+      setNewPassword('');
+      setSuccessMsg(res.message || 'Profil dan pengaturan keamanan berhasil diperbarui!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Gagal memperbarui profil.';
+      setErrorMsg(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,6 +121,12 @@ export default function SettingsPage() {
           </div>
           
           <div style={{ padding: '24px' }}>
+            {errorMsg && (
+              <div className="alert alert--danger" style={{ marginBottom: '20px', backgroundColor: 'var(--color-danger)', color: '#fff', padding: '14px', borderRadius: '4px' }}>
+                ✕ {errorMsg}
+              </div>
+            )}
+
             <form onSubmit={handleProfileSave}>
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">Display Name / Username</label>
@@ -133,8 +165,8 @@ export default function SettingsPage() {
                 />
               </div>
 
-              <button type="submit" className="btn btn--primary">
-                SAVE CHANGES
+              <button type="submit" className="btn btn--primary" disabled={loading}>
+                {loading ? 'SAVING...' : 'SAVE CHANGES'}
               </button>
             </form>
           </div>

@@ -3,6 +3,8 @@ import { getMenuFavorites } from '../../api/publicApi';
 import MenuCard from './MenuCard';
 import SAMPLE_MENUS from '../../data/sampleMenus';
 
+import AOS from 'aos';
+
 export default function FavoritesSection() {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,12 @@ export default function FavoritesSection() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      AOS.refresh();
+    }
+  }, [loading]);
 
   return (
     <section className="favorites" id="menu">

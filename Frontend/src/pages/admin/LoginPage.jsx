@@ -16,17 +16,13 @@ export default function LoginPage() {
     setError('');
     
     try {
-      // In a real app, this would use the real API
-      // const { user, token } = await adminLogin(form);
-      
-      // Simulated login for demo purposes based on design
-      const token = 'fake-jwt-token-123';
-      const user = { name: 'Ebony Admin', role: 'MANAGER', email: form.email };
+      const res = await adminLogin(form);
+      const { token, user } = res;
       
       login(user, token);
       navigate('/admin/dashboard');
     } catch (err) {
-      setError('Username atau password salah.');
+      setError(err.response?.data?.message || 'Email atau password salah.');
     } finally {
       setLoading(false);
     }

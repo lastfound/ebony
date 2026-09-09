@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="footer" id="footer">
+    <footer className="footer" id="footer" data-aos="fade-up">
       <div className="footer__top">
         {/* Brand */}
         <div>
@@ -59,9 +59,9 @@ export default function Footer() {
         <div>
           <p className="footer__col-title">OPENING HOURS</p>
           <div className="footer__col-text">
-            <span>WEEKDAYS<br />Monday – Friday<br />12:00 AM – 10:00 PM</span>
+            <span>WEEKDAYS<br />Tuesday – Friday<br />12:00 AM – 10:00 PM</span>
             <span style={{ marginTop: 12, display: 'block' }}>
-              WEEKENDS / HOLIDAYS<br />Saturday – Sunday<br />12:00 AM – 10:00 PM
+              WEEKENDS / HOLIDAYS<br />Saturday – Sunday<br />11:00 AM – 10:00 PM
             </span>
           </div>
         </div>
