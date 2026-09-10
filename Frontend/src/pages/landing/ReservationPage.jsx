@@ -71,23 +71,12 @@ export default function ReservationPage() {
 
     setLoading(true);
 
-    // --- SIMULASI PENUH (Untuk Demo UI) ---
-    // Jika jumlah tamu > 15, kita simulasikan bahwa reservasi ditolak karena full
-    if (parseInt(form.party_size) > 15) {
-      setTimeout(() => {
-        setErrors({ general: 'Maaf, kuota reservasi pada tanggal/jam tersebut sudah full. Silakan pilih waktu lain.' });
-        setLoading(false);
-      }, 800);
-      return;
-    }
-    // --------------------------------------
-
     try {
       const res = await submitReservation(form);
       setBookingNo(res.booking_number || res.data?.booking_number || 'EBONY-001');
       setSuccess(true);
     } catch (error) {
-      // Tangkap pesan error spesifik dari Backend Laravel nanti
+      // Menampilkan pesan error spesifik dari Backend Laravel jika kuota penuh / slot habis
       const errMsg = error.response?.data?.message || 'Terjadi kesalahan sistem atau kuota penuh. Coba lagi.';
       setErrors({ general: errMsg });
     } finally {

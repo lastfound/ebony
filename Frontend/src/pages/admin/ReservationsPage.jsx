@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
-import ReservationRow from '../../components/admin/ReservationRow';
 import Modal from '../../components/ui/Modal';
 import { getReservations, exportReservationsCSV, createReservation } from '../../api/adminApi';
 
 export default function ReservationsPage() {
+  const navigate = useNavigate();
   const [reservations, setReservations] = useState([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -71,16 +72,80 @@ export default function ReservationsPage() {
       <hr className="divider divider--section" style={{ marginBottom: 40 }} />
 
       <div className="list-header">
-        <h2 className="list-title">Upcoming Today</h2>
+        <h2 className="list-title">All Upcoming Reservations</h2>
         <button className="btn btn--outline-dark btn--sm" onClick={exportReservationsCSV}>
           ↓ EXPORT CSV
         </button>
       </div>
 
-      <div className="reservation-list">
+<div className="reservation-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         {reservations.length > 0 ? (
           reservations.map(r => (
-            <ReservationRow key={r.id} reservation={r} />
+            <div 
+              key={r.id} 
+              onClick={() => navigate(`/admin/reservations/${r.id}`)}
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1.5fr 1.5fr 1fr 1fr 0.5fr', 
+                alignItems: 'center',
+                backgroundColor: '#ffffff',
+                padding: '20px 24px',
+                borderRadius: '8px',
+                border: '1px solid #eaeaea',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                cursor: 'pointer'
+              }}
+            >
+              {/* KOLOM TANGGAL & JAM */}
+              <div>
+                <span style={{ display: 'block', fontSize: '0.7rem', color: '#a08c5b', fontWeight: 600, letterSpacing: '1px', marginBottom: '4px' }}>
+                  DATE & TIME
+                </span>
+                <span style={{ display: 'block', fontSize: '0.8rem', color: '#666', fontWeight: 500 }}>
+                  {r.formatted_date || r.date}
+                </span>
+                <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#1a1a1a' }}>
+                  {r.time}
+                </span>
+              </div>
+
+              {/* KOLOM GUEST */}
+              <div>
+                <span style={{ display: 'block', fontSize: '0.7rem', color: '#a08c5b', fontWeight: 600, letterSpacing: '1px', marginBottom: '4px' }}>
+                  GUEST
+                </span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1a1a1a' }}>
+                  {r.guest_name}
+                </span>
+              </div>
+
+              {/* KOLOM PARTY */}
+              <div>
+                <span style={{ display: 'block', fontSize: '0.7rem', color: '#a08c5b', fontWeight: 600, letterSpacing: '1px', marginBottom: '4px' }}>
+                  PARTY
+                </span>
+                <span style={{ fontSize: '0.9rem', color: '#4a4a4a', fontWeight: 500 }}>
+                  👥 {r.party_size} Guests
+                </span>
+              </div>
+
+              {/* KOLOM TABLE */}
+              <div>
+                <span style={{ display: 'block', fontSize: '0.7rem', color: '#a08c5b', fontWeight: 600, letterSpacing: '1px', marginBottom: '4px' }}>
+                  TABLE
+                </span>
+                <span style={{ fontSize: '0.9rem', color: '#4a4a4a', fontWeight: 500 }}>
+                  🪑 {r.table_name || 'Unassigned'}
+                </span>
+              </div>
+
+              {/* TOMBOL DETAIL */}
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.5px', color: '#1a1a1a' }}>
+                  DETAIL
+                </span>
+              </div>
+            </div>
           ))
         ) : (
           <p style={{ color: 'var(--color-muted)', padding: '24px 0' }}>Belum ada reservasi.</p>
