@@ -25,18 +25,17 @@ class DashboardController extends Controller
 
         $resChange = $totalReservationsYesterday > 0
             ? round((($totalReservationsToday - $totalReservationsYesterday) / $totalReservationsYesterday) * 100)
-            : 12; // default visual baseline jika data baru
+            : 0; // Ubah ke 0 agar persentase riil saat data baru
 
-        // 2. Revenue Today (dihitung dari preorders reservasi hari ini atau estimasi spending)
+        // 2. Revenue Today
         $todayReservationIds = Reservation::whereDate('date', $today)->pluck('id');
         $preorderRevenue = ReservationItem::whereIn('reservation_id', $todayReservationIds)
             ->selectRaw('SUM(price * qty) as total')
             ->value('total') ?? 0;
 
-        // Base estimasi revenue (jika preorder kosong, hitung estimasi Rp 150.000 per tamu)
         if ($preorderRevenue == 0) {
             $totalGuests = Reservation::whereDate('date', $today)->sum('party_size');
-            $revenueAmount = $totalGuests > 0 ? $totalGuests * 150000 : 2500000;
+            $revenueAmount = $totalGuests * 150000; // Hitung murni dari jumlah tamu hari ini
         } else {
             $revenueAmount = $preorderRevenue;
         }
@@ -45,14 +44,14 @@ class DashboardController extends Controller
         $activeMenus = Menu::where('is_available', true)->count();
         $seasonalCount = Menu::where('badge', 'like', '%SEASONAL%')->count();
 
-        // 4. Trending Items (ambil dari menu featured atau top preorders)
+        // 4. Trending Items
         $trendingItems = Menu::where('is_available', true)
             ->where('is_featured', true)
             ->take(3)
             ->get(['id', 'name', 'description', 'image_url']);
 
         return response()->json([
-            'total_reservations' => $totalReservationsToday > 0 ? $totalReservationsToday : 14,
+            'total_reservations' => $totalReservationsToday, // Perbaikan di baris ini
             'reservation_change' => $resChange,
             'revenue_today'      => number_format($revenueAmount, 0, ',', '.'),
             'revenue_change'     => 8,

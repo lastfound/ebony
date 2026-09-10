@@ -81,14 +81,20 @@ class ReservationController extends Controller
     }
 
     /**
-     * Admin list reservations (with pagination & search).
+     * Admin list reservations (Skenario B: Menampilkan semua reservasi mendatang).
      */
     public function index(Request $request)
     {
         $perPage = (int) $request->get('per_page', 4);
-        $query   = Reservation::with('table')->orderBy('date', 'desc')->orderBy('time', 'asc');
+        
+        // Urutkan berdasarkan tanggal terdekat dan waktu jamnya
+        $query = Reservation::with('table')
+            ->whereDate('date', '>=', Carbon::today())
+            ->orderBy('date', 'asc')
+            ->orderBy('time', 'asc');
 
-        if ($request->filled('date')) {
+        // Filter opsional jika frontend mengirimkan parameter pencarian tanggal spesifik
+        if ($request->filled('date') && $request->date !== 'all') {
             if ($request->date === 'today') {
                 $query->whereDate('date', Carbon::today());
             } else {
@@ -107,7 +113,7 @@ class ReservationController extends Controller
 
         $paginated = $query->paginate($perPage);
 
-        // Format data agar sesuai ekspektasi frontend ReservationRow.jsx
+        // Format data: pastikan tanggal & waktu dikirim jelas
         $formatted = collect($paginated->items())->map(function ($r) {
             return [
                 'id'             => $r->id,
@@ -115,6 +121,7 @@ class ReservationController extends Controller
                 'guest_name'     => $r->guest_name,
                 'time'           => is_string($r->time) ? substr($r->time, 0, 5) : Carbon::parse($r->time)->format('H:i'),
                 'date'           => is_string($r->date) ? $r->date : Carbon::parse($r->date)->format('Y-m-d'),
+                'formatted_date' => Carbon::parse($r->date)->format('d M Y'), // Format mudah dibaca (misal: 11 Sep 2026)
                 'party_size'     => $r->party_size,
                 'table_name'     => $r->table ? $r->table->name : 'Unassigned',
                 'occasion'       => $r->occasion,
@@ -197,7 +204,7 @@ class ReservationController extends Controller
             'phone'         => 'sometimes|required|string|max:30',
             'email'         => 'sometimes|required|email|max:255',
             'date'          => 'sometimes|required|date',
-            'time'          => 'sometimes|required',
+            'time' `         => 'sometimes|required',
             'party_size'    => 'sometimes|required|integer|min:1|max:20',
             'table_id'      => 'nullable|exists:restaurant_tables,id',
             'occasion'      => 'nullable|string|max:255',
