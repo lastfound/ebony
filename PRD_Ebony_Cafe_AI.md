@@ -1496,3 +1496,13 @@ Tagline fitur:
 - Dibuat komponen FloatingAIChat.jsx sebagai interface Asisten Virtual (AI Dining Concierge) bagi customer, lengkap dengan fitur chat, loading state, dan memory ID.
 - FloatingAIChat.jsx diinjeksi ke global layout (App.jsx) sehingga tampil di semua halaman publik.
 - Ditambahkan antarmuka **AI Guest Request Analyzer** pada sisi Admin di ReservationDetailPage.jsx yang bisa menganalisis request khusus pelanggan menjadi data JSON (kategori, prioritas, daftar permintaan, & action staff).
+
+### 3. UI/UX Responsiveness & Layout
+- Memperbaiki layout Navbar.jsx untuk tampilan *mobile* dengan menyembunyikan tombol 'CONTACT' agar ikon *Hamburger menu* dan logo tidak berdesakan/tumpang tindih di layar kecil.
+- Menyesuaikan ukuran kotak FloatingAIChat.jsx menggunakan maxWidth dan maxHeight (misal 100vw & 100vh minus padding) agar secara dinamis menyesuaikan diri (responsif) tanpa terpotong baik saat dibuka di *smartphone*, *tablet*, maupun *desktop*.
+
+## YANG BELUM DIKERJAKAN (PENDING/TODO)
+
+1. **AI Reservation Flow (Multi-step Booking)**: Saat ini, AI difokuskan pada tahap *greeting*, rekomendasi menu, dan *Analyzer* internal. Kemampuan AI untuk mengeksekusi secara penuh proses reservasi mandiri (mengumpulkan nama, tanggal, jumlah kursi, lalu menyimpannya sendiri ke database melalui percakapan) belum sepenuhnya terimplementasi secara interaktif di *frontend*.
+2. **Error Handling/Feedback dari Google Gemini (Overload Handling)**: Perlu penanganan UI yang lebih elegan ketika API Google Gemini mengalami *Error 503 (High Demand/Overload)* agar user/customer tidak bingung dan diberitahu untuk mencoba beberapa saat lagi dengan *wording* yang bersahabat.
+3. **Menu Recommendation UI Card**: Belum ada komponen grafis seperti *Card Carousel* di dalam balasan AI apabila AI merekomendasikan menu tertentu (saat ini masih berbasis teks murni/Markdown).
