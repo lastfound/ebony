@@ -44,7 +44,7 @@ export default function Navbar() {
       </ul>
 
       {/* Contact button */}
-      <a href="#footer" className="btn btn--outline-light btn--sm">
+      <a href="#footer" className="btn btn--outline-light btn--sm navbar__contact-btn">
         CONTACT
       </a>
 

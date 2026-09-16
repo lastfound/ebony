@@ -128,6 +128,10 @@
   .navbar__hamburger {
     display: block;
   }
+
+  .navbar__contact-btn {
+    display: none;
+  }
 }
 
 /* ============================================
