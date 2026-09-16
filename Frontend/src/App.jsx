@@ -13,6 +13,7 @@ import ProtectedRoute from './components/admin/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
+import FloatingAIChat from './components/ui/FloatingAIChat';
 
 function App() {
   useEffect(() => {
@@ -28,6 +29,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <FloatingAIChat />
         <Routes>
           {/* === LANDING PAGE (Publik) === */}
           <Route path="/" element={<LandingPage />} />

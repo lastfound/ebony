@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import AdminLayout from '../../components/admin/AdminLayout';
 import Spinner from '../../components/ui/Spinner';
 import { getReservationDetail, updateReservationStatus } from '../../api/adminApi';
@@ -12,6 +13,9 @@ export default function ReservationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
+  
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -35,6 +39,27 @@ export default function ReservationDetailPage() {
       loadData();
     }
   }, [id]);
+
+  const handleAnalyzeRequest = async () => {
+    if (!reservation?.dietary_notes && !reservation?.notes) {
+      alert("Tidak ada catatan khusus untuk dianalisis.");
+      return;
+    }
+    setAnalyzing(true);
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+      const requestText = reservation.dietary_notes || reservation.notes;
+      const res = await axios.post(`${apiUrl}/ai/analyze-request`, {
+        special_request: requestText
+      });
+      setAiAnalysis(res.data);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal melakukan analisis AI.');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const handleStatusChange = async (e) => {
     const newStatus = e.target.value;
@@ -241,7 +266,7 @@ export default function ReservationDetailPage() {
           </div>
         </div>
 
-        {/* Kolom Kanan: UBAH STATUS RESERVASI */}
+        {/* Kolom Kanan: UBAH STATUS RESERVASI & AI ANALYZER */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea' }}>
             <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: '#1a1a1a' }}>Ubah Status Reservasi</h3>
@@ -270,6 +295,67 @@ export default function ReservationDetailPage() {
             </div>
 
             {savingStatus && <p style={{ fontSize: '0.8rem', color: '#888', margin: 0 }}>Menyimpan status...</p>}
+          </div>
+
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea', borderTop: '4px solid #1a1a1a' }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '12px', color: '#1a1a1a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              ✨ AI Guest Request Analyzer
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '16px' }}>
+              Analisis catatan khusus tamu untuk mendapatkan prioritas dan tindakan staf yang diperlukan.
+            </p>
+            <button 
+              onClick={handleAnalyzeRequest}
+              disabled={analyzing}
+              style={{
+                width: '100%',
+                backgroundColor: '#1a1a1a',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '10px',
+                cursor: analyzing ? 'default' : 'pointer',
+                opacity: analyzing ? 0.7 : 1,
+                fontWeight: 'bold'
+              }}
+            >
+              {analyzing ? 'Menganalisis...' : 'Analisis dengan AI'}
+            </button>
+
+            {aiAnalysis && (
+              <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#888', display: 'block' }}>KATEGORI</span>
+                  <span style={{ fontSize: '0.95rem', fontWeight: 600, textTransform: 'capitalize' }}>{aiAnalysis.category}</span>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#888', display: 'block' }}>PRIORITAS</span>
+                  <span style={{ 
+                    fontSize: '0.85rem', 
+                    fontWeight: 600, 
+                    textTransform: 'uppercase',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    backgroundColor: aiAnalysis.priority === 'high' ? '#ffebee' : (aiAnalysis.priority === 'medium' ? '#fff3e0' : '#e8f5e9'),
+                    color: aiAnalysis.priority === 'high' ? '#c62828' : (aiAnalysis.priority === 'medium' ? '#ef6c00' : '#2e7d32')
+                  }}>
+                    {aiAnalysis.priority}
+                  </span>
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#888', display: 'block' }}>PERMINTAAN TERDETEKSI</span>
+                  <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px', fontSize: '0.9rem', color: '#444' }}>
+                    {aiAnalysis.detected_request?.map((req, i) => <li key={i}>{req}</li>)}
+                  </ul>
+                </div>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#888', display: 'block' }}>TINDAKAN STAF</span>
+                  <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px', fontSize: '0.9rem', color: '#444' }}>
+                    {aiAnalysis.staff_action?.map((act, i) => <li key={i}>{act}</li>)}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

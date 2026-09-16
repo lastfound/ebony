@@ -19,6 +19,10 @@ class Menu extends Model
         'image_url',
         'is_featured',
         'is_available',
+        'ingredients',
+        'dietary_tags',
+        'allergens',
+        'spicy_level',
     ];
 
     protected $casts = [

@@ -60,3 +60,10 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::put('/events/{id}',     [EventController::class, 'update']);
     Route::delete('/events/{id}',  [EventController::class, 'destroy']);
 });
+
+// ===== 4. AI ENDPOINTS (Sesuai PRD) =====
+Route::post('/ai/chat', [\App\Http\Controllers\Api\AIController::class, 'chat']);
+Route::post('/ai/menu-recommendation', [\App\Http\Controllers\Api\AIController::class, 'menuRecommendation']);
+Route::post('/ai/reservation-assistant', [\App\Http\Controllers\Api\AIController::class, 'reservationAssistant']);
+Route::post('/ai/analyze-request', [\App\Http\Controllers\Api\AIController::class, 'analyzeRequest']);
+
