@@ -96,6 +96,8 @@ export default function FloatingAIChat() {
             style={{
               width: '350px',
               height: '500px',
+              maxWidth: 'calc(100vw - 48px)',
+              maxHeight: 'calc(100vh - 100px)',
               backgroundColor: 'white',
               borderRadius: '12px',
               boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
