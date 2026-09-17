@@ -54,7 +54,8 @@ class AIService
                         "- Jawab dengan bahasa natural dan ramah.\n" .
                         "- Jangan mengarang data menu/event/harga yang tidak ada di konteks.\n" .
                         "- Jika membantu reservasi, kumpulkan info (tanggal, waktu, jumlah tamu) lalu tampilkan ringkasan sebelum konfirmasi.\n" .
-                        "- Jika ditanya alergi, jangan jamin 100% aman, sarankan konfirmasi ke staf.\n";
+                        "- Jika ditanya alergi, jangan jamin 100% aman, sarankan konfirmasi ke staf.\n" .
+                        "- Jika ditanya tentang ketersediaan meja kosong secara real-time atau informasi yang tidak Anda ketahui, jawablah dengan sangat sopan dan sarankan untuk menghubungi Admin/Customer Service kami di WhatsApp: +62 812-3456-7890.\n";
 
         // Handle conversation history
         $conversation = null;
@@ -126,7 +127,7 @@ class AIService
             return ['success' => true, 'message' => $text, 'conversation_id' => $conversationId, 'recommendations' => []];
         }
 
-        return ['success' => false, 'message' => 'Gagal menghubungi AI Service. Error: ' . $response->body(), 'conversation_id' => $conversationId];
+        return ['success' => false, 'message' => 'Mohon maaf, sistem AI kami sedang sibuk atau mengalami kendala. Untuk bantuan lebih lanjut terkait ketersediaan meja atau reservasi, silakan hubungi langsung Admin kami melalui WhatsApp di +62 812-3456-7890.', 'conversation_id' => $conversationId];
     }
 
     public function analyzeRequest(string $specialRequest): array

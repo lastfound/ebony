@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 
 export default function FloatingAIChat() {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
     { role: 'model', content: "Hello! I'm Ebony AI, your personal dining concierge. What are you looking for tonight?" }
@@ -45,11 +47,11 @@ export default function FloatingAIChat() {
           setConversationId(res.data.conversation_id);
         }
       } else {
-        setMessages(prev => [...prev, { role: 'model', content: res.data.message || 'Maaf, terjadi kesalahan.' }]);
+        setMessages(prev => [...prev, { role: 'model', content: res.data.message || 'Mohon maaf, terjadi kesalahan pada sistem AI kami.' }]);
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'model', content: 'Gagal terhubung ke AI Service.' }]);
+      setMessages(prev => [...prev, { role: 'model', content: 'Mohon maaf, sistem AI kami saat ini sedang tidak dapat diakses. Silakan hubungi langsung Admin kami melalui WhatsApp di +62 812-3456-7890 untuk bantuan lebih lanjut.' }]);
     } finally {
       setIsLoading(false);
     }
@@ -58,6 +60,11 @@ export default function FloatingAIChat() {
   const handleQuickAction = (text) => {
     setInput(text);
   };
+
+  // Do not render on admin pages
+  if (location.pathname.startsWith('/admin')) {
+    return null;
+  }
 
   return (
     <>

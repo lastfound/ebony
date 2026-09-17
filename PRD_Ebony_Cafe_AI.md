@@ -11,6 +11,27 @@
 
 ---
 
+# IMPLEMENTATION STATUS (As of Sep 17, 2026)
+
+## ✅ Selesai (DONE)
+- **Customer AI (Floating AI Chat):** UI Floating chatbot di frontend (`Ask Ebony AI`) telah selesai dan terintegrasi.
+- **Hide AI in Admin Dashboard:** Widget AI disembunyikan di area admin (`/admin/*`) dan hanya tampil di landing page publik.
+- **AI Context Awareness:** API AI dapat mengambil referensi secara realtime dari database backend (Menu, Event, Table Reservation).
+- **Menu & Occasion Recommendation:** Fitur rekomendasi menu/pairing untuk occasion (contoh: *romantic dinner*) sudah berhasil diimplementasikan via NLP prompt ke AI.
+- **Dietary & Allergy Filter:** AI dapat mengecek *ingredients* dan *allergens* dari database, dan memberi rekomendasi dengan *disclaimer* standar jika ada risiko *cross-contamination*.
+- **Reservation Assistance:** AI dapat menangkap informasi yang diperlukan (tanggal, jumlah tamu) di chat untuk persiapan reservasi.
+- **Polite Error Handling:** Error message dari AI sudah diperhalus untuk mengarahkan customer menghubungi Admin di WhatsApp jika terjadi kendala teknis atau ketika ketersediaan meja tidak diketahui AI.
+- **Guest Request Analyzer (Admin AI):** Fungsional ✨ *AI Guest Request Analyzer* di halaman *Reservation Detail* untuk staf sudah terimplementasi dan berfungsi penuh untuk ekstrak sentimen dan langkah antisipasi staf.
+
+## ❌ Belum Dibuat / Out of Scope
+Sesuai arahan Scope PRD, fitur di bawah ini memang belum diimplementasikan di versi saat ini (disengaja):
+- Voice assistant.
+- Image generation dari AI.
+- Memproses checkout atau pembayaran langsung via AI.
+- AI melakukan registrasi reservasi otonom tanpa adanya intervensi/konfirmasi user melalui GUI.
+
+---
+
 # 1. PROJECT OVERVIEW
 
 Ebony adalah aplikasi **Ebony Cafe** yang memiliki fitur utama:
