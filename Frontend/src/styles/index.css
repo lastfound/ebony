@@ -1889,3 +1889,9 @@
   flex-direction: column;
   gap: 18px;
 }
+
+/* WhatsApp Reservation Button Animation */
+@keyframes waButtonPulse {
+  0%, 100% { box-shadow: 0 3px 10px rgba(37, 211, 102, 0.35); }
+  50% { box-shadow: 0 3px 18px rgba(37, 211, 102, 0.6); }
+}
