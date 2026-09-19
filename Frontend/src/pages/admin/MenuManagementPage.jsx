@@ -28,6 +28,10 @@ export default function MenuManagementPage() {
     fetchData();
   }, []);
 
+  // Hitung menu yang sedang habis untuk ditampilkan di banner AI
+  const soldOutCount = menus.filter(m => !m.is_available).length;
+  const soldOutNames = menus.filter(m => !m.is_available).map(m => m.name);
+
   const filteredMenus = activeTab === 'All Items'
     ? menus
     : menus.filter(m => m.category === activeTab);
@@ -123,6 +127,32 @@ export default function MenuManagementPage() {
         <button className="btn btn--primary" onClick={() => { setEditItem(null); setShowMenuModal(true); }}>
           + Add New
         </button>
+      </div>
+
+      {/* Banner AI Integration */}
+      <div style={{
+        margin: '0 0 20px',
+        padding: '12px 18px',
+        borderRadius: '10px',
+        backgroundColor: soldOutCount > 0 ? '#fff7ed' : '#f0fdf4',
+        border: `1px solid ${soldOutCount > 0 ? '#fdba74' : '#86efac'}`,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: '10px'
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>{soldOutCount > 0 ? '🤖⚠️' : '🤖✅'}</span>
+        <div>
+          <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: soldOutCount > 0 ? '#c2410c' : '#15803d' }}>
+            {soldOutCount > 0
+              ? `AI Chatbot mendeteksi ${soldOutCount} menu sedang HABIS`
+              : 'AI Chatbot: Semua menu tersedia — tidak ada yang habis'}
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#6b7280' }}>
+            {soldOutCount > 0
+              ? `Menu habis: ${soldOutNames.join(', ')}. Chatbot akan otomatis memberitahu tamu jika menanyakan menu ini.`
+              : 'Tamu yang chat dengan AI akan mendapat info menu terkini secara real-time.'}
+          </p>
+        </div>
       </div>
 
       <div className="tab-filter">

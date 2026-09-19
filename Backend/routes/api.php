@@ -61,9 +61,13 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     Route::delete('/events/{id}',  [EventController::class, 'destroy']);
 });
 
-// ===== 4. AI ENDPOINTS (Sesuai PRD) =====
-Route::post('/ai/chat', [\App\Http\Controllers\Api\AIController::class, 'chat']);
-Route::post('/ai/menu-recommendation', [\App\Http\Controllers\Api\AIController::class, 'menuRecommendation']);
-Route::post('/ai/reservation-assistant', [\App\Http\Controllers\Api\AIController::class, 'reservationAssistant']);
-Route::post('/ai/analyze-request', [\App\Http\Controllers\Api\AIController::class, 'analyzeRequest']);
+// ===== 4. AI ENDPOINTS (Sesuai PRD) — rate limit 20 req/menit/IP agar biaya LLM tidak membengkak =====
+Route::middleware('throttle:20,1')->group(function () {
+    Route::post('/ai/chat', [\App\Http\Controllers\Api\AIController::class, 'chat']);
+    Route::post('/ai/menu-recommendation', [\App\Http\Controllers\Api\AIController::class, 'menuRecommendation']);
+    Route::post('/ai/reservation-assistant', [\App\Http\Controllers\Api\AIController::class, 'reservationAssistant']);
+    Route::post('/ai/analyze-request', [\App\Http\Controllers\Api\AIController::class, 'analyzeRequest']);
+    Route::get('/ai/sold-out-menus', [\App\Http\Controllers\Api\AIController::class, 'soldOutMenus']);
+});
+
 

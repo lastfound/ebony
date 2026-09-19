@@ -5,8 +5,14 @@ import { useLocation } from 'react-router-dom';
 const INITIAL_MESSAGES = [
   { 
     role: 'model', 
-    content: "Halo! Saya Ebony AI, dining concierge pribadi Anda di Ebony Cafe & Gallery. Ada yang bisa saya bantu hari ini?",
-    options: ['📅 Ingin Reservasi Meja', '🍽️ Rekomendasi Menu Spesial', '📍 Jam & Info Operasional']
+    content: "Halo! Saya Ebony AI 🍷 — dining concierge pribadi Anda di Ebony Indonesia, Baturaden.\n\nAda yang bisa saya bantu hari ini? Saya siap membantu reservasi meja, merekomendasikan menu, atau menjawab pertanyaan seputar cafe kami 😊",
+    options: [
+      '📅 Reservasi Meja',
+      '🍽️ Rekomendasi Menu',
+      '📍 Lokasi & Jam Buka',
+      '🎂 Ada Acara Spesial',
+      '💬 Hi, I speak English!'
+    ]
   }
 ];
 
@@ -102,7 +108,8 @@ export default function FloatingAIChat() {
             content: res.data.message,
             options: Array.isArray(res.data.options) ? res.data.options : [],
             whatsappLink: res.data.whatsapp_link || null,
-            reservationData: res.data.reservation_data || null
+            reservationData: res.data.reservation_data || null,
+            bookingNumber: res.data.booking_number || null
           }
         ]);
         if (res.data.conversation_id && res.data.conversation_id !== conversationId) {
@@ -283,6 +290,28 @@ export default function FloatingAIChat() {
                           {opt}
                         </button>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Booking tersimpan di database */}
+                  {msg.role === 'model' && msg.bookingNumber && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginTop: '10px',
+                      padding: '10px 14px',
+                      backgroundColor: '#e8f5e9',
+                      border: '1px solid #a5d6a7',
+                      borderRadius: '10px',
+                      fontSize: '0.82rem',
+                      color: '#1b5e20',
+                      maxWidth: '95%'
+                    }}>
+                      <span style={{ fontSize: '1.1rem' }}>✅</span>
+                      <div>
+                        <strong>Reservasi tersimpan di sistem!</strong> Kode Booking: <strong>#{msg.bookingNumber}</strong>
+                      </div>
                     </div>
                   )}
 

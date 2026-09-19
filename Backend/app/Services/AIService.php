@@ -23,6 +23,9 @@ class AIService
         $this->baseUrl = config('services.groq.base_url', 'https://api.groq.com/openai/v1/chat/completions');
     }
 
+    /**
+     * Konteks menu & area meja dari database — diperkaya dengan harga & deskripsi singkat.
+     */
     protected function getContext(): string
     {
         $ctx = "";
@@ -30,9 +33,20 @@ class AIService
         try {
             $menus = Menu::where('is_available', true)->get();
             if ($menus->count() > 0) {
-                $ctx .= "MENU UTAMA:\n";
-                foreach ($menus->take(8) as $m) {
-                    $ctx .= "- {$m->name} (Rp" . number_format($m->price, 0, ',', '.') . ") [{$m->category}]\n";
+                $ctx .= "MENU TERSEDIA SAAT INI:\n";
+                foreach ($menus->take(18) as $m) {
+                    $line = "- {$m->name} (Rp" . number_format($m->price, 0, ',', '.') . ") [{$m->category}]";
+                    if (!empty($m->description)) {
+                        $line .= " — " . \Illuminate\Support\Str::limit($m->description, 60);
+                    }
+                    if (!empty($m->spicy_level) && $m->spicy_level > 0) {
+                        $line .= " [Pedas: " . str_repeat('🌶', min($m->spicy_level, 3)) . "]";
+                    }
+                    if (!empty($m->dietary_tags)) {
+                        $tags = is_array($m->dietary_tags) ? implode(', ', $m->dietary_tags) : $m->dietary_tags;
+                        if ($tags) $line .= " [{$tags}]";
+                    }
+                    $ctx .= $line . "\n";
                 }
             }
         } catch (\Exception $e) {}
@@ -40,14 +54,245 @@ class AIService
         try {
             $tables = RestaurantTable::all();
             if ($tables->count() > 0) {
-                $ctx .= "AREA MEJA:\n";
+                $ctx .= "\nAREA & MEJA TERSEDIA:\n";
                 foreach ($tables as $t) {
-                    $ctx .= "- {$t->name} ({$t->area}, kap: {$t->capacity})\n";
+                    $ctx .= "- {$t->name} (area: {$t->area}, kapasitas: {$t->capacity} orang)\n";
                 }
             }
         } catch (\Exception $e) {}
 
         return $ctx;
+    }
+
+    /**
+     * Knowledge base statis Ebony Cafe — info lokasi, fasilitas, dll.
+     * Digunakan untuk menjawab pertanyaan umum tamu tanpa perlu panggil API.
+     */
+    protected function getCafeKnowledge(): string
+    {
+        return <<<KNOWLEDGE
+PROFIL EBONY CAFE & GALLERY:
+- Konsep: Fine dining + art gallery — tempat makan, berkarya, dan bersantai yang elegan
+- Tagline: "A place to Dine, Gallery, and Unwind"
+- Filosofi: Simple Elegance — bahan-bahan terbaik, teknik inovatif, pengalaman tak terlupakan
+- Suasana: Hangat, intim, artistik — cocok untuk kencan, anniversary, ulang tahun, business dinner
+
+LOKASI & KONTAK:
+- Alamat: Jl. Raya Baturaden Km. 10, Karang Mangu, Baturaden, Banyumas, Jawa Tengah 53151
+- Area: Baturaden, Jawa Tengah (dekat wisata Baturaden/Purwokerto)
+- WhatsApp: +62 855-1188-868
+- Instagram: @ebonyindonesia
+- Google Maps: tersedia (cari "Ebony Cafe Baturaden")
+
+JAM OPERASIONAL:
+- Senin: TUTUP / LIBUR
+- Selasa – Jumat: 12:00 – 22:00 WIB
+- Sabtu – Minggu & Hari Libur: 11:00 – 22:00 WIB
+- Last order: 30 menit sebelum tutup (pukul 21:30 WIB)
+
+FASILITAS:
+- Area parkir luas (mobil & motor)
+- Free WiFi untuk pelanggan
+- Area indoor (Main Hall) ber-AC
+- Area outdoor (Terrace) dengan pemandangan alam Baturaden
+- VIP Lounge untuk acara private / eksklusif
+- Art Gallery — pameran karya seni yang berganti secara berkala
+- Live music di hari-hari tertentu (info lebih lanjut via Instagram)
+- Photo-friendly spots / instagrammable areas
+- Toilet bersih
+- Kursi roda accessible (area utama)
+
+AREA MEJA:
+- Main Hall (Indoor): nyaman, ber-AC, cocok untuk keluarga, makan siang bisnis, atau saat cuaca panas
+- Terrace (Outdoor): pemandangan alam Baturaden yang asri, cocok untuk makan malam romantis atau foto-foto
+- VIP Lounge: privat, eksklusif, cocok untuk anniversary, ulang tahun, lamaran, business meeting
+
+PEMESANAN & PEMBAYARAN:
+- Reservasi: via AI chatbot (langsung di website), WhatsApp, atau form online
+- Pembayaran: cash, transfer bank, QRIS, kartu debit/kredit (Visa & Mastercard)
+- Tanpa biaya reservasi / no reservation fee
+- Cancellation: hubungi admin minimal 2 jam sebelum waktu reservasi
+
+DRESS CODE:
+- Smart casual hingga formal — tidak ada aturan ketat
+- Disarankan berpakaian rapi dan sopan untuk kenyamanan bersama
+
+CATATAN KHUSUS:
+- Bisa request dekorasi spesial (ulang tahun, anniversary, lamaran) — hubungi admin minimal 1 hari sebelumnya
+- Bisa bawa kue sendiri dari luar (dengan pemberitahuan sebelumnya)
+- Menu bisa disesuaikan untuk alergi/pantangan makanan — informasikan saat reservasi
+- Tersedia kursi bayi (baby chair) — minta saat reservasi
+- Kapasitas total: hubungi admin untuk event/gathering besar (30+ orang)
+KNOWLEDGE;
+    }
+
+    /**
+     * Deteksi bahasa pesan: 'id' = Bahasa Indonesia, 'en' = English, 'mix' = campuran
+     */
+    protected function detectLanguage(string $message): string
+    {
+        $enWords = preg_match_all('/\b(i|you|we|the|is|are|want|table|menu|book|reserve|hello|hi|please|can|could|how|what|when|where|food|drink|available|closed|open|price|help|thanks|thank)\b/i', $message);
+        $idWords = preg_match_all('/\b(saya|aku|mau|ingin|meja|menu|reservasi|pesan|halo|hai|kapan|berapa|dimana|bagaimana|makanan|minuman|bisa|tolong|terima\s*kasih|oke|ada|tidak|harga|buka|tutup|bantu)\b/i', $message);
+
+        if ($enWords > 0 && $idWords === 0) return 'en';
+        if ($enWords > 0 && $idWords > 0) return 'mix';
+        return 'id';
+    }
+
+    /**
+     * Deteksi occasion dari percakapan untuk rekomendasi yang lebih personal.
+     */
+    protected function detectOccasion(array $userTexts, string $currentMessage): ?string
+    {
+        $allText = strtolower(implode(' ', $userTexts) . ' ' . $currentMessage);
+
+        if (preg_match('/ulang\s*tahun|birthday|hbd|happy\s*birthday|bday/i', $allText)) return 'birthday';
+        if (preg_match('/anniversary|ulang\s*tahun\s*(pernikahan|nikah)|peringatan/i', $allText)) return 'anniversary';
+        if (preg_match('/lamaran|tunangan|proposal|nikah|menikah|akan\s*menikah/i', $allText)) return 'proposal';
+        if (preg_match('/kencan|date\s*night|romantis|romantic|pasangan|berdua|pacar|kekasih/i', $allText)) return 'romantic';
+        if (preg_match('/bisnis|business|meeting|rapat|klien|client|rekan\s*kerja|kolega/i', $allText)) return 'business';
+        if (preg_match('/keluarga|family|anak|ortu|orang\s*tua|gathering|kumpul/i', $allText)) return 'family';
+        if (preg_match('/arisan|komunitas|group|grup|rombongan|banyak\s*orang/i', $allText)) return 'group';
+        if (preg_match('/wisuda|lulus|graduation|kelulusan/i', $allText)) return 'graduation';
+        if (preg_match('/brunch|sarapan|makan\s*siang|lunch|nongkrong|santai|casual/i', $allText)) return 'casual';
+
+        return null;
+    }
+
+    /**
+     * Kembalikan rekomendasi menu + area berdasarkan occasion.
+     */
+    protected function getOccasionRecommendation(string $occasion, string $lang = 'id'): string
+    {
+        $recs = [
+            'birthday' => [
+                'id' => "🎂 Untuk perayaan ulang tahun, saya rekomendasikan area *VIP Lounge* yang privat dan bisa didekorasi khusus! Bisa request balon, bunga, atau lilin ulang tahun ke admin kami minimal 1 hari sebelumnya ya. Menu dessert spesial kami juga cocok banget untuk momen ini 🥂",
+                'en' => "🎂 For a birthday celebration, I recommend our *VIP Lounge* — it's private and can be specially decorated! You can request balloons, flowers, or birthday candles via our admin at least 1 day in advance. Our special dessert menu pairs perfectly too 🥂",
+            ],
+            'anniversary' => [
+                'id' => "💑 Anniversary yang berkesan butuh suasana yang tepat! Kami rekomendasikan *Terrace (Outdoor)* di malam hari — pemandangan alam Baturaden yang romantis sambil menikmati hidangan istimewa. Mau kami siapkan dekorasi spesial? Hubungi admin sehari sebelumnya 🌹",
+                'en' => "💑 For a special anniversary, we recommend our *Terrace (Outdoor)* in the evening — the natural Baturaden scenery is simply romantic. Would you like special decorations? Contact our admin at least a day before 🌹",
+            ],
+            'proposal' => [
+                'id' => "💍 Wow, momen lamaran yang spesial! Kami sangat bisa membantu membuat momen ini sempurna. *VIP Lounge* adalah pilihan terbaik — privat, eksklusif, dan bisa didekorasi dengan bunga & lilin. Hubungi admin kami secepatnya untuk koordinasi dekorasi ya 🤫",
+                'en' => "💍 A proposal! How special! Our *VIP Lounge* is the perfect choice — private, exclusive, and can be decorated with flowers & candles. Please contact our admin ASAP to coordinate the surprise 🤫",
+            ],
+            'romantic' => [
+                'id' => "🌙 Untuk date night yang romantis, *Terrace (Outdoor)* di malam hari adalah pilihan terbaik! Udara sejuk Baturaden, pemandangan alam, dan menu dinner kami yang istimewa. Atau kalau mau yang lebih privat, *VIP Lounge* juga sangat cocok 🕯️",
+                'en' => "🌙 For a romantic date, our *Terrace (Outdoor)* at night is ideal! The cool Baturaden breeze, natural scenery, and our special dinner menu. For more privacy, the *VIP Lounge* is also perfect 🕯️",
+            ],
+            'business' => [
+                'id' => "💼 Untuk business dinner atau meeting, kami rekomendasikan *Main Hall (Indoor)* yang tenang dan kondusif, atau *VIP Lounge* untuk diskusi yang lebih privat. Jam terbaik: 12:00–15:00 (makan siang) atau 18:00–20:00 (dinner). WiFi gratis tersedia 📶",
+                'en' => "💼 For a business dinner or meeting, we recommend our quiet *Main Hall (Indoor)* or the private *VIP Lounge* for sensitive discussions. Best time: 12:00–15:00 (lunch) or 18:00–20:00 (dinner). Free WiFi available 📶",
+            ],
+            'family' => [
+                'id' => "👨‍👩‍👧‍👦 Untuk kumpul keluarga, *Main Hall (Indoor)* yang luas dan nyaman adalah pilihan ideal! Ber-AC, tersedia kursi bayi (baby chair), dan menu beragam yang cocok untuk semua usia. Jika 10+ orang, sebaiknya reservasi lebih awal ya 😊",
+                'en' => "👨‍👩‍👧‍👦 For a family gathering, our spacious *Main Hall (Indoor)* is ideal! Air-conditioned, baby chairs available, and a diverse menu suitable for all ages. For 10+ people, please reserve well in advance 😊",
+            ],
+            'group' => [
+                'id' => "🎉 Untuk rombongan atau gathering, kami sarankan hubungi admin kami langsung via WhatsApp (+62 855-1188-868) untuk koordinasi tempat duduk, menu, dan kemungkinan set menu khusus rombongan. Kapasitas besar bisa diatur!",
+                'en' => "🎉 For group events or gatherings, we suggest contacting our admin directly via WhatsApp (+62 855-1188-868) to coordinate seating, menu, and possible group set menus. Large capacities can be arranged!",
+            ],
+            'graduation' => [
+                'id' => "🎓 Selamat atas kelulusannya! Rayakan di Ebony — *VIP Lounge* atau *Main Hall* sama-sama cocok. Mau ada dekorasi atau foto bersama yang berkesan? Hubungi admin untuk koordinasi 🥂",
+                'en' => "🎓 Congratulations on graduating! Celebrate at Ebony — both *VIP Lounge* or *Main Hall* work great. Want special decorations or a memorable photo session? Contact our admin 🥂",
+            ],
+            'casual' => [
+                'id' => "☕ Untuk santai atau nongkrong, *Terrace (Outdoor)* kami sangat recommended! Udara segar Baturaden, sambil menikmati minuman dan snack favorit. Kalau weekend, buka dari jam 11 pagi lho 😊",
+                'en' => "☕ For a casual hangout, our *Terrace (Outdoor)* is highly recommended! Fresh Baturaden air while enjoying your favorite drinks and snacks. On weekends, we open from 11am! 😊",
+            ],
+        ];
+
+        $rec = $recs[$occasion] ?? null;
+        if (!$rec) return '';
+
+        return $lang === 'en' ? ($rec['en'] ?? $rec['id']) : $rec['id'];
+    }
+
+    public function getSoldOutMenus(): array
+    {
+        try {
+            return Menu::where('is_available', false)
+                ->select('id', 'name', 'category', 'price')
+                ->get()
+                ->toArray();
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    protected function hasCoreReservationData(array $state): bool
+    {
+        return !empty($state['tanggal_iso'])
+            && !empty($state['jam'])
+            && !empty($state['jumlah_tamu'])
+            && !empty($state['nama'])
+            && !empty($state['no_hp']);
+    }
+
+    protected function createReservationFromState(array $state): array
+    {
+        if (!$this->hasCoreReservationData($state)) {
+            return ['created' => false];
+        }
+
+        // Normalisasi jam: "19:00 WIB" → "19:00"
+        $time = '19:00';
+        if (preg_match('/(\d{1,2}):(\d{2})/', $state['jam'], $t)) {
+            $time = sprintf('%02d:%02d', max(0, min(23, (int)$t[1])), max(0, min(59, (int)$t[2])));
+        }
+
+        // Jumlah tamu integer: "3 - 4 Orang" / "7+ Orang" / "2 Orang"
+        $partySize = 2;
+        if (preg_match('/(\d{1,2})/', $state['jumlah_tamu'], $g)) {
+            $partySize = max(1, min(100, (int)$g[1]));
+        }
+
+        $date = $state['tanggal_iso'];
+
+        // Idempotent: reservasi yang sama tidak boleh dibuat dua kali
+        $existing = \App\Models\Reservation::where('guest_name', $state['nama'])
+            ->where('phone', $state['no_hp'])
+            ->where('date', $date)
+            ->where('time', $time)
+            ->where('status', '!=', 'cancelled')
+            ->first();
+
+        if ($existing) {
+            return ['created' => true, 'booking_number' => $existing->booking_number, 'duplicate' => true];
+        }
+
+        // Quota: maksimal 25 tamu per slot waktu (sama seperti reservasi manual)
+        $currentBookedGuests = \App\Models\Reservation::where('date', $date)
+            ->where('time', 'like', substr($time, 0, 2) . '%')
+            ->where('status', '!=', 'cancelled')
+            ->sum('party_size');
+
+        if (($currentBookedGuests + $partySize) > 25) {
+            return ['created' => false, 'slot_full' => true];
+        }
+
+        do {
+            $bookingNumber = (string) mt_rand(1000, 9999);
+        } while (\App\Models\Reservation::where('booking_number', $bookingNumber)->exists());
+
+        \App\Models\Reservation::create([
+            'booking_number' => $bookingNumber,
+            'guest_name'     => $state['nama'],
+            'phone'          => $state['no_hp'],
+            'email'          => $state['email'] ?? '',
+            'date'           => $date,
+            'time'           => $time,
+            'party_size'     => $partySize,
+            'table_id'       => null,
+            'occasion'       => 'Reservasi AI',
+            'dietary_notes'  => null,
+            'seating_notes'  => $state['area'] ?? null,
+            'is_arrived'     => false,
+            'status'         => 'pending',
+        ]);
+
+        return ['created' => true, 'booking_number' => $bookingNumber];
     }
 
     protected function extractReservationState(array $historyMessages, string $currentMessage, \Carbon\Carbon $now): array
@@ -88,9 +333,13 @@ class AIService
             'is_monday_rejected' => false,
             'is_confirmed' => false,
             'tanggal' => null,
+            'tanggal_iso' => null,
             'jam' => null,
             'jumlah_tamu' => null,
             'area' => null,
+            'nama' => null,
+            'no_hp' => null,
+            'email' => null,
         ];
 
         // 1. Check Intent
@@ -125,12 +374,14 @@ class AIService
 
             if (preg_match('/\bhari\s*ini\b/i', $text)) {
                 $state['tanggal'] = $now->translatedFormat('l, d F Y');
+                $state['tanggal_iso'] = $now->format('Y-m-d');
             } elseif (preg_match('/\bbesok\b/i', $text)) {
                 $d = $now->copy()->addDay();
                 if ($d->dayOfWeekIso === 1) {
                     $state['is_monday_rejected'] = true;
                 } else {
                     $state['tanggal'] = $d->translatedFormat('l, d F Y');
+                    $state['tanggal_iso'] = $d->format('Y-m-d');
                 }
             } elseif (preg_match('/\blusa\b/i', $text)) {
                 $d = $now->copy()->addDays(2);
@@ -138,6 +389,7 @@ class AIService
                     $state['is_monday_rejected'] = true;
                 } else {
                     $state['tanggal'] = $d->translatedFormat('l, d F Y');
+                    $state['tanggal_iso'] = $d->format('Y-m-d');
                 }
             } elseif (preg_match('/(\d{1,2})\s*(jan|feb|mar|apr|mei|may|jun|jul|agu|aug|sep|okt|oct|nov|des|dec)[a-z]*\s*(\d{2,4})?/i', $text, $match)) {
                 $day = (int)$match[1];
@@ -152,6 +404,7 @@ class AIService
                         $state['tanggal'] = null;
                     } else {
                         $state['tanggal'] = $d->translatedFormat('l, d F Y');
+                        $state['tanggal_iso'] = $d->format('Y-m-d');
                         $state['is_monday_rejected'] = false;
                         $state['wants_reservation'] = true;
                     }
@@ -167,6 +420,7 @@ class AIService
                     if ($diff < 0) $diff += 7;
                     $d = $now->copy()->addDays($diff);
                     $state['tanggal'] = $d->translatedFormat('l, d F Y');
+                    $state['tanggal_iso'] = $d->format('Y-m-d');
                     $state['is_monday_rejected'] = false;
                     $state['wants_reservation'] = true;
                 }
@@ -218,6 +472,23 @@ class AIService
             } elseif (preg_match('/main\s*hall|indoor/i', $text)) {
                 $state['area'] = 'Main Hall (Indoor)';
                 $state['wants_reservation'] = true;
+            }
+        }
+
+        // 9. Nama, No HP, Email
+        foreach ($userTexts as $text) {
+            if (!$state['email'] && preg_match('/([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})/i', $text, $eMatch)) {
+                $state['email'] = strtolower($eMatch[1]);
+            }
+
+            if (!$state['no_hp'] && preg_match('/(?:\+?62|0)\s?8\d[\d\s\-]{7,13}/', $text, $pMatch)) {
+                $state['no_hp'] = preg_replace('/[\s\-]/', '', $pMatch[0]);
+            }
+
+            if (!$state['nama']) {
+                if (preg_match('/(?:nama\s*(?:saya|aku|ku|gue)?\s*(?:adalah|:)?\s*|atas\s*nama\s*|an\.\s*|panggil\s*(?:aku|saya|gue|guwe)?\s*)([A-Za-z][A-Za-z\s\.\']{1,60})/i', $text, $nMatch)) {
+                    $state['nama'] = ucwords(trim($nMatch[1]));
+                }
             }
         }
 
@@ -299,14 +570,26 @@ class AIService
             $targetStep = 'REJECT_MONDAY';
             $stepGuidance = "Tamu menyebut hari Senin atau tanggal yang jatuh pada hari Senin. Jelaskan dengan sangat ramah bahwa setiap hari Senin Ebony Cafe LIBUR/TUTUP. Tawarkan hari alternatif (Selasa s/d Minggu). JANGAN tampilkan opsi 'Pilih sendiri'.";
             $suggestedOptions = ["📅 {$selasaStr}", "📅 {$satStr}", "📅 {$sunStr}"];
-        } elseif ($state['is_confirmed'] && $state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area']) {
+        } elseif ($state['is_confirmed'] && $state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area'] && $state['nama'] && $state['no_hp'] && $state['email']) {
             $targetStep = 'CONFIRMED';
-            $stepGuidance = "Semua detail reservasi LENGKAP dan tamu sudah KONFIRMASI setuju/benar. Balas dengan ucapan antusias bahwa data reservasi sudah siap. Wajib set reservation_confirmed=true dan isi reservation_data lengkap! Arahkan tamu mengklik tombol hijau WhatsApp di bawah.";
+            $stepGuidance = "Semua detail reservasi LENGKAP (tanggal, jam, jumlah tamu, area, nama, no HP, email) dan tamu sudah KONFIRMASI setuju/benar. Balas dengan ucapan antusias bahwa data reservasi sudah otomatis tersimpan di sistem Ebony Cafe dan konfirmasi dikirim langsung ke nomor WhatsApp tamu. Wajib set reservation_confirmed=true dan isi reservation_data lengkap (tanggal, jam, jumlah_tamu, area, nama_tamu, no_hp, email). Sampaikan ada tombol WhatsApp untuk kirim detail ke Admin. DILARANG menyebut konfirmasi dikirim ke EMAIL — konfirmasi dikirim via WhatsApp ke nomor HP tamu.";
             $suggestedOptions = ["📋 Reservasi Baru", "🍽️ Rekomendasi Menu"];
-        } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area']) {
+        } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area'] && $state['nama'] && $state['no_hp'] && $state['email']) {
             $targetStep = 'ASK_CONFIRMATION';
-            $stepGuidance = "Semua 4 detail reservasi sudah terkumpul: Tanggal={$state['tanggal']}, Jam={$state['jam']}, Tamu={$state['jumlah_tamu']}, Area={$state['area']}. Rangkum keempat detail tersebut dengan rapi dan tanyakan apakah datanya sudah benar.";
+            $stepGuidance = "Semua 7 detail reservasi sudah terkumpul: Tanggal={$state['tanggal']}, Jam={$state['jam']}, Tamu={$state['jumlah_tamu']}, Area={$state['area']}, Nama={$state['nama']}, No HP={$state['no_hp']}, Email={$state['email']}. Rangkum ketujuh detail tersebut dengan rapi dan tanyakan apakah datanya sudah benar.";
             $suggestedOptions = ["✅ Ya, sudah benar!", "✏️ Mau ubah detail", "❌ Batalkan"];
+        } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area'] && $state['nama'] && $state['no_hp']) {
+            $targetStep = 'ASK_EMAIL';
+            $stepGuidance = "Semua data reservasi sudah ada, tinggal tanyakan alamat email tamu (OPSIONAL, untuk pencatatan saja). Jika tamu tidak mau mengisi, tutup saja dengan ramah dan lanjut ke konfirmasi data.";
+            $suggestedOptions = [];
+        } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area'] && $state['nama']) {
+            $targetStep = 'ASK_PHONE';
+            $stepGuidance = "Tanyakan nomor WhatsApp/telepon tamu yang bisa dihubungi untuk konfirmasi reservasi.";
+            $suggestedOptions = [];
+        } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu'] && $state['area']) {
+            $targetStep = 'ASK_NAME';
+            $stepGuidance = "Semua detail kunjungan sudah lengkap. Sekarang tanyakan nama lengkap tamu untuk keperluan reservasi.";
+            $suggestedOptions = [];
         } elseif ($state['tanggal'] && $state['jam'] && $state['jumlah_tamu']) {
             $targetStep = 'ASK_AREA';
             $stepGuidance = "Data tanggal ({$state['tanggal']}), jam ({$state['jam']}), dan jumlah tamu ({$state['jumlah_tamu']}) sudah ada. Sekarang tanyakan pilihan area meja yang diinginkan (Main Hall Indoor, Terrace Outdoor, atau VIP Lounge).";
@@ -333,23 +616,124 @@ class AIService
             $suggestedOptions = ["📅 Besok ({$besokStr})", "📅 Akhir Pekan", "📅 {$selasaStr}", "📅 Mau Pilih Tanggal Lain"];
         }
 
-        // Build concise, token-efficient system prompt (< 400 tokens)
-        $systemPrompt = "Kamu adalah Ebony AI, asisten ramah Ebony Cafe & Gallery.\n"
-            . "Waktu Server: {$now->translatedFormat('l, d F Y')}. Operasional: Senin=TUTUP, Sel-Jum 12:00-22:00, Sab-Min 11:00-22:00.\n"
-            . "Gaya bahasa santai, hangat, elegan, JANGAN pakai nomor 1, 2, 3.\n"
-            . "Format JSON MURNI:\n"
-            . "{\"reply\":\"teks balasan\",\"options\":[\"opsi 1\",\"opsi 2\"],\"reservation_confirmed\":false,\"reservation_data\":null}\n\n";
+        // Tangkap data diri (nama/no HP/email) dari pesan terbaru sesuai langkah aktif
+        if ($targetStep === 'ASK_NAME' && empty($state['nama'])) {
+            $cleaned = trim(preg_replace('/^(iya|ya|oke|ok|baiklah|siap|baik|nama\s*(saya|aku|ku|gue|gw)?|saya|namaku|aku|panggil|panggil\s*(aku|saya))\s*[:,\-]?\s*/i', '', $message));
+            $cleaned = preg_replace('/[^A-Za-z \.\']+/', ' ', $cleaned);
+            $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
+            if ($cleaned !== '' && strlen($cleaned) >= 2) {
+                $state['nama'] = ucwords(strtolower($cleaned));
+            }
+        } elseif ($targetStep === 'ASK_PHONE' && empty($state['no_hp'])) {
+            if (preg_match('/(?:\+?62|0)\s?8\d[\d\s\-]{7,13}/', $message, $pMatch)) {
+                $state['no_hp'] = preg_replace('/[\s\-]/', '', $pMatch[0]);
+            }
+        } elseif ($targetStep === 'ASK_EMAIL' && empty($state['email'])) {
+            if (preg_match('/([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})/i', $message, $eMatch)) {
+                $state['email'] = strtolower($eMatch[1]);
+            } elseif (preg_match('/(tidak\s+.*(?:email|isikan|isi)|gak\s+.*(?:email|isi)|nggak|ga\s+usah|no|skip|tanpa\s+email|tidak\s+ada|ga\s+ada|ngga\s+ada)/i', $message)) {
+                $state['email'] = 'belum diisi';
+            }
+        }
+
+        // Lanjut ke langkah berikutnya jika data diri baru saja tertangkap
+        if ($targetStep === 'ASK_NAME' && !empty($state['nama'])) {
+            $targetStep = empty($state['no_hp']) ? 'ASK_PHONE' : (empty($state['email']) ? 'ASK_EMAIL' : 'ASK_CONFIRMATION');
+        } elseif ($targetStep === 'ASK_PHONE' && !empty($state['no_hp']) && empty($state['email'])) {
+            $targetStep = 'ASK_EMAIL';
+        } elseif ($targetStep === 'ASK_PHONE' && !empty($state['no_hp'])) {
+            $targetStep = 'ASK_CONFIRMATION';
+        } elseif ($targetStep === 'ASK_EMAIL' && !empty($state['email'])) {
+            $targetStep = 'ASK_CONFIRMATION';
+        }
+
+        if ($targetStep === 'ASK_NAME') {
+            $stepGuidance = "Semua detail kunjungan sudah lengkap. Sekarang tanyakan nama lengkap tamu untuk keperluan reservasi.";
+            $suggestedOptions = [];
+        } elseif ($targetStep === 'ASK_PHONE') {
+            $stepGuidance = "Tanyakan nomor WhatsApp/telepon tamu yang bisa dihubungi untuk konfirmasi reservasi.";
+            $suggestedOptions = [];
+        } elseif ($targetStep === 'ASK_EMAIL') {
+            $stepGuidance = "Tanyakan alamat email tamu (OPSIONAL, untuk pencatatan saja). Jika tamu tidak mau mengisi, lanjut saja ke konfirmasi data.";
+            $suggestedOptions = [];
+        }
+
+        // Ambil daftar menu habis untuk dimasukkan ke system prompt
+        $soldOutMenus = $this->getSoldOutMenus();
+        $soldOutInfo = "";
+        if (!empty($soldOutMenus)) {
+            $soldOutInfo = "\nMENU YANG SEDANG HABIS HARI INI:\n";
+            foreach ($soldOutMenus as $sm) {
+                $soldOutInfo .= "- {$sm['name']} [{$sm['category']}] → HABIS/TIDAK TERSEDIA\n";
+            }
+            $soldOutInfo .= "PENTING: Jika tamu menyebut atau menanyakan menu di atas, wajib beritahu dengan sopan bahwa menu tersebut sedang habis dan tawarkan menu lain dari daftar yang tersedia.\n";
+        }
+
+        // Deteksi bahasa dan occasion
+        $lang = $this->detectLanguage($message);
+        $occasion = $this->detectOccasion($allUserTexts, $message);
+        $occasionRec = $occasion ? $this->getOccasionRecommendation($occasion, $lang) : '';
+
+        // Instruksi bahasa
+        $langInstruction = match($lang) {
+            'en'  => "BAHASA: Tamu menulis dalam Bahasa Inggris. Balas dalam Bahasa Inggris yang hangat dan elegan. Boleh sisipkan kata Indonesia sesekali untuk nuansa lokal.",
+            'mix' => "BAHASA: Tamu menggunakan campuran Bahasa Indonesia dan Inggris. Ikuti gaya bahasa mereka — balas bilingual yang natural.",
+            default => "BAHASA: Balas dalam Bahasa Indonesia yang santai, hangat, dan elegan. JANGAN kaku atau terlalu formal.",
+        };
+
+        // Instruksi occasion (jika terdeteksi)
+        $occasionInstruction = $occasion
+            ? "\nOCCASION TERDETEKSI: Tamu datang untuk '{$occasion}'. Gunakan rekomendasi ini dalam balasanmu jika relevan:\n{$occasionRec}\n"
+            : "";
+
+        // Build system prompt yang kaya dan personal
+        $systemPrompt = <<<PROMPT
+Kamu adalah **Ebony AI** 🍷 — dining concierge pribadi Ebony Cafe & Gallery yang cerdas, hangat, dan berpengetahuan luas.
+
+KEPRIBADIAN KAMU:
+- Hangat seperti teman lama, elegan seperti sommelier bintang lima
+- Antusias saat membahas makanan, suasana, atau pengalaman dining
+- Selalu fokus pada pengalaman tamu, bukan sekadar menjawab pertanyaan
+- Gunakan emoji secukupnya untuk membuat percakapan lebih hidup
+- JANGAN pernah gunakan format nomor (1, 2, 3) dalam balasan
+- JANGAN mengarang menu/harga yang tidak ada di database
+
+{$langInstruction}
+{$occasionInstruction}
+WAKTU SEKARANG: {$now->translatedFormat('l, d F Y H:i')} WIB
+JAM OPERASIONAL: Senin=TUTUP, Selasa–Jumat 12:00–22:00, Sabtu–Minggu 11:00–22:00 WIB (last order 21:30 WIB)
+
+PENGETAHUAN TENTANG EBONY CAFE:
+{$this->getCafeKnowledge()}
+
+DATA MENU & MEJA REAL-TIME (hanya gunakan data ini!):
+{$this->getContext()}
+{$soldOutInfo}
+ATURAN PENTING:
+- Jika tamu tanya lokasi/parkir/fasilitas/WiFi/dress code/pembayaran → jawab dari pengetahuan di atas
+- Jika tamu tanya menu yang tidak ada di daftar → jujur bahwa kamu tidak punya info tersebut dan sarankan menu yang ada
+- Jika tamu mau reservasi → masuk ke flow reservasi dengan ramah
+- Jika tamu menyapa dalam Bahasa Inggris → balas dalam Bahasa Inggris
+- Selalu tawarkan langkah selanjutnya yang berguna bagi tamu
+
+FORMAT RESPONS (JSON MURNI, tanpa markdown, tanpa komentar):
+{"reply":"teks balasan yang natural","options":["opsi 1","opsi 2"],"reservation_confirmed":false,"reservation_data":null}
+PROMPT;
 
         if ($targetStep !== 'GENERAL') {
-            $systemPrompt .= "STATUS RESERVASI TERKUMPUL:\n"
+            $systemPrompt .= "\n\nSTATUS RESERVASI TERKUMPUL:\n"
                 . "- Tanggal: " . ($state['tanggal'] ?: 'belum ada') . "\n"
                 . "- Jam: " . ($state['jam'] ?: 'belum ada') . "\n"
                 . "- Tamu: " . ($state['jumlah_tamu'] ?: 'belum ada') . "\n"
-                . "- Area: " . ($state['area'] ?: 'belum ada') . "\n\n"
+                . "- Area: " . ($state['area'] ?: 'belum ada') . "\n"
+                . "- Nama: " . ($state['nama'] ?: 'belum ada') . "\n"
+                . "- No HP: " . ($state['no_hp'] ?: 'belum ada') . "\n"
+                . "- Email: " . ($state['email'] ?: 'belum ada') . "\n\n"
                 . "PETUNJUK LANGKAH INI:\n{$stepGuidance}\n"
                 . "Gunakan opsi berikut jika relevan: " . json_encode($suggestedOptions, JSON_UNESCAPED_UNICODE);
         } else {
-            $systemPrompt .= "Jawab pertanyaan tamu dengan ramah dan tawarkan bantuan reservasi meja atau info menu.";
+            $occasionHint = $occasionRec ? "\nInfo untuk occasion '{$occasion}':\n{$occasionRec}" : '';
+            $systemPrompt .= "\n\nJawab pertanyaan tamu dengan ramah, informasi dari knowledge base di atas, dan tawarkan bantuan reservasi meja atau rekomendasi menu.{$occasionHint}";
         }
 
         $apiMessages = [
@@ -389,11 +773,11 @@ class AIService
                     'Authorization' => "Bearer {$this->apiKey}",
                     'Content-Type' => 'application/json',
                 ])->timeout(35)->post($this->baseUrl, [
-                    'model' => $this->model,
-                    'messages' => $apiMessages,
-                    'response_format' => ['type' => 'json_object'],
-                    'max_completion_tokens' => 300,
-                    'temperature' => 0.5,
+                    'model'                 => $this->model,
+                    'messages'              => $apiMessages,
+                    'response_format'       => ['type' => 'json_object'],
+                    'max_completion_tokens' => 450,   // lebih banyak ruang untuk jawaban kaya
+                    'temperature'           => 0.65,  // lebih natural & variatif
                 ]);
 
                 if ($response->successful()) {
@@ -445,19 +829,49 @@ class AIService
 
         $whatsappLink = null;
         $reservationData = null;
+        $bookingNumber = null;
 
-        // Check if reservation is confirmed
-        $isConfirmedInAI = !empty($aiResponse['reservation_confirmed']) && !empty($aiResponse['reservation_data']);
-        if ($isConfirmedInAI || ($targetStep === 'CONFIRMED')) {
-            $aiData = is_array($aiResponse['reservation_data'] ?? null) ? $aiResponse['reservation_data'] : [];
-            $reservationData = [
-                'tanggal' => $aiData['tanggal'] ?? $state['tanggal'] ?? $now->translatedFormat('l, d F Y'),
-                'jam' => $aiData['jam'] ?? $state['jam'] ?? '19:00 WIB',
-                'jumlah_tamu' => $aiData['jumlah_tamu'] ?? $aiData['tamu'] ?? $state['jumlah_tamu'] ?? '2 Orang',
-                'area' => $aiData['area'] ?? $state['area'] ?? 'Main Hall (Indoor)',
-                'nama_tamu' => $aiData['nama_tamu'] ?? 'Tamu'
-            ];
-            $whatsappLink = $this->generateWhatsAppLink($reservationData);
+        // Konfirmasi final → simpan otomatis ke database + kirim konfirmasi WhatsApp ke nomor tamu
+        $isAiConfirmed = !empty($aiResponse['reservation_confirmed'] ?? false);
+        $shouldPersist = $this->hasCoreReservationData($state)
+            && ($targetStep === 'CONFIRMED' || !empty($state['is_confirmed']) || $isAiConfirmed);
+
+        if ($shouldPersist) {
+            $createResult = $this->createReservationFromState($state);
+
+            if (($createResult['created'] ?? false) && ($createResult['booking_number'] ?? null)) {
+                $bookingNumber = $createResult['booking_number'];
+
+                $reservationData = [
+                    'tanggal'      => $state['tanggal'] ?? $now->translatedFormat('l, d F Y'),
+                    'jam'          => $state['jam'] ?? '19:00 WIB',
+                    'jumlah_tamu'  => $state['jumlah_tamu'] ?? '2 Orang',
+                    'area'         => $state['area'] ?? 'Main Hall (Indoor)',
+                    'nama_tamu'    => $state['nama'] ?? 'Tamu',
+                    'no_hp'        => $state['no_hp'] ?? '',
+                    'email'        => $state['email'] ?? '',
+                    'booking_number' => $bookingNumber,
+                ];
+                $whatsappLink = $this->generateWhatsAppLink($reservationData);
+
+                if (empty($createResult['duplicate'])) {
+                    $replyText .= "\n\n✅ Reservasi kamu sudah tersimpan otomatis di sistem Ebony Cafe! Kode Booking: *#{$bookingNumber}*.";
+
+                    $waResult = app(\App\Services\WhatsAppService::class)
+                        ->send($state['no_hp'], $this->buildConfirmationMessage($reservationData));
+
+                    if (!empty($waResult['ok'])) {
+                        $replyText .= "\n📲 Konfirmasi juga sudah terkirim langsung ke nomor WhatsApp kamu ya!";
+                    } else {
+                        Log::warning('Kirim konfirmasi WA gagal: ' . ($waResult['error'] ?? 'unknown'));
+                        $replyText .= "\n\n⚠️ Konfirmasi WhatsApp belum terkirim (periksa FONNTE_TOKEN/WABLAS_TOKEN di .env ya), tapi data reservasi tetap tersimpan.";
+                    }
+                } else {
+                    $replyText .= "\n\n🎟️ Kode Booking kamu: *#{$bookingNumber}* (data sudah tersimpan di sistem). Bisa juga dikirim ulang via tombol WhatsApp di bawah.";
+                }
+            } elseif (($createResult['slot_full'] ?? false)) {
+                $replyText .= "\n\nMohon maaf, kuota reservasi pada tanggal/jam tersebut sudah penuh. Silakan pilih tanggal atau jam lain ya 🙏";
+            }
         }
 
         // Save assistant response to DB
@@ -482,6 +896,10 @@ class AIService
         if ($whatsappLink) {
             $payload['whatsapp_link'] = $whatsappLink;
             $payload['reservation_data'] = $reservationData;
+        }
+
+        if ($bookingNumber) {
+            $payload['booking_number'] = $bookingNumber;
         }
 
         return $payload;
@@ -534,14 +952,35 @@ class AIService
                 ];
             case 'ASK_CONFIRMATION':
                 return [
-                    'reply' => "Rangkuman reservasi kamu sudah siap:\n📅 Tanggal: {$state['tanggal']}\n🕐 Jam: {$state['jam']}\n👥 Tamu: {$state['jumlah_tamu']}\n📍 Area: {$state['area']}\n\nApakah detail di atas sudah benar semua?",
+                    'reply' => "Rangkuman reservasi kamu sudah siap:\n📅 Tanggal: {$state['tanggal']}\n🕐 Jam: {$state['jam']}\n👥 Tamu: {$state['jumlah_tamu']}\n📍 Area: {$state['area']}\n👤 Nama: {$state['nama']}\n📱 No. HP: {$state['no_hp']}\n📧 Email: {$state['email']}\n\nApakah detail di atas sudah benar semua?",
+                    'options' => $suggestedOptions,
+                    'reservation_confirmed' => false,
+                    'reservation_data' => null
+                ];
+            case 'ASK_NAME':
+                return [
+                    'reply' => "Terima kasih! Sebelum reservasi diproses, boleh tahu nama lengkap kamu dulu nih?",
+                    'options' => $suggestedOptions,
+                    'reservation_confirmed' => false,
+                    'reservation_data' => null
+                ];
+            case 'ASK_PHONE':
+                return [
+                    'reply' => "Siap Kak {$state['nama']}! Boleh kasih nomor WhatsApp kamu yang bisa dihubungi ya?",
+                    'options' => $suggestedOptions,
+                    'reservation_confirmed' => false,
+                    'reservation_data' => null
+                ];
+            case 'ASK_EMAIL':
+                return [
+                    'reply' => "Terakhir, alamat email kamu berapa ya? (opsional, untuk pencatatan saja 😊 — kalau tidak mau diisi juga tidak apa-apa)",
                     'options' => $suggestedOptions,
                     'reservation_confirmed' => false,
                     'reservation_data' => null
                 ];
             case 'CONFIRMED':
                 return [
-                    'reply' => "Mantap! Detail reservasi kamu sudah lengkap 🎉 Silakan klik tombol hijau WhatsApp di bawah untuk langsung mengirimkan data ke Admin Ebony Cafe ya!",
+                    'reply' => "Mantap! Detail reservasi kamu sudah lengkap 🎉 Data sudah otomatis tersimpan di sistem Ebony Cafe, dan konfirmasinya akan dikirim langsung ke nomor WhatsApp kamu. Kamu juga bisa klik tombol hijau WhatsApp di bawah untuk kirim detailnya ke Admin!",
                     'options' => $suggestedOptions,
                     'reservation_confirmed' => true,
                     'reservation_data' => [
@@ -549,7 +988,9 @@ class AIService
                         'jam' => $state['jam'] ?? '19:00 WIB',
                         'jumlah_tamu' => $state['jumlah_tamu'] ?? '2 Orang',
                         'area' => $state['area'] ?? 'Main Hall (Indoor)',
-                        'nama_tamu' => 'Tamu'
+                        'nama_tamu' => $state['nama'] ?? 'Tamu',
+                        'no_hp' => $state['no_hp'] ?? '',
+                        'email' => $state['email'] ?? ''
                     ]
                 ];
             default:
@@ -562,6 +1003,21 @@ class AIService
         }
     }
 
+    protected function buildConfirmationMessage(array $data): string
+    {
+        $namaTamu = !empty($data['nama_tamu']) ? $data['nama_tamu'] : 'Tamu';
+
+        return "Halo {$namaTamu}! 🌟\n\n"
+             . "Reservasi kamu di *Ebony Cafe & Gallery* sudah kami terima:\n\n"
+             . "🎟️ *Kode Booking*: {$data['booking_number']}\n"
+             . "📅 *Tanggal*: {$data['tanggal']}\n"
+             . "🕐 *Jam*: {$data['jam']}\n"
+             . "👥 *Jumlah Tamu*: {$data['jumlah_tamu']}\n"
+             . "📍 *Area*: {$data['area']}\n\n"
+             . "Mohon datang 15 menit sebelum jadwal ya. Terima kasih dan sampai jumpa! 👋\n\n"
+             . "_(Pesan ini dikirim otomatis oleh Ebony AI)_";
+    }
+
     protected function generateWhatsAppLink(array $data): string
     {
         $adminPhone = '6288239386759';
@@ -571,14 +1027,22 @@ class AIService
         $jumlahTamu = $data['jumlah_tamu'] ?? $data['tamu'] ?? $data['guest_count'] ?? '-';
         $area = $data['area'] ?? '-';
         $namaTamu = !empty($data['nama_tamu']) ? $data['nama_tamu'] : 'Tamu';
+        $noHp = $data['no_hp'] ?? $data['phone'] ?? '-';
+        $email = $data['email'] ?? '-';
+        $booking = $data['booking_number'] ?? null;
+
+        $bookingLine = $booking ? "🎟️ *Kode Booking*: {$booking}\n" : "";
 
         $message = "Halo Admin Ebony Cafe! 👋\n\n"
                  . "Saya ingin melakukan *reservasi meja* dengan detail berikut:\n\n"
+                 . $bookingLine
                  . "📅 *Tanggal*: {$tanggal}\n"
                  . "🕐 *Jam*: {$jam}\n"
                  . "👥 *Jumlah Tamu*: {$jumlahTamu}\n"
                  . "📍 *Area*: {$area}\n"
-                 . "👤 *Nama*: {$namaTamu}\n\n"
+                 . "👤 *Nama*: {$namaTamu}\n"
+                 . "📱 *No. HP / WhatsApp*: {$noHp}\n"
+                 . "📧 *Email*: {$email}\n\n"
                  . "Mohon konfirmasi ketersediaan meja ya. Terima kasih! 🙏\n\n"
                  . "_(Pesan ini dikirim melalui Ebony AI Chatbot)_";
 

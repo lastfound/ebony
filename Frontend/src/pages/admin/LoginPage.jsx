@@ -47,7 +47,7 @@ export default function LoginPage() {
               required
               value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-              placeholder="admin@ebonycafe.com" 
+              placeholder="admin@ebonyindonesia.com" 
             />
           </div>
           <div className="form-group">

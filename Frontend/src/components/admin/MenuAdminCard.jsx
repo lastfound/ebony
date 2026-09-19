@@ -8,6 +8,22 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
         <span className="menu-admin-card__image-badge">
           {menu.category}
         </span>
+        {!menu.is_available && (
+          <span style={{
+            position: 'absolute',
+            top: '8px',
+            left: '8px',
+            backgroundColor: '#ef4444',
+            color: 'white',
+            fontSize: '0.65rem',
+            fontWeight: 700,
+            padding: '3px 8px',
+            borderRadius: '20px',
+            letterSpacing: '0.03em'
+          }}>
+            HABIS
+          </span>
+        )}
       </div>
       
       <div className="menu-admin-card__body">
@@ -21,11 +37,26 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
         <p className="menu-admin-card__desc">{menu.description}</p>
         
         <div className="menu-admin-card__actions">
-          <Toggle 
-            checked={menu.is_available} 
-            onChange={onToggle}
-            label={menu.is_available ? 'Available' : 'Sold Out'}
-          />
+          <div>
+            <Toggle 
+              checked={menu.is_available} 
+              onChange={onToggle}
+              label={menu.is_available ? 'Available' : 'Sold Out'}
+            />
+            {!menu.is_available && (
+              <p style={{
+                margin: '4px 0 0',
+                fontSize: '0.68rem',
+                color: '#f59e0b',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px'
+              }}>
+                🤖 AI chatbot sudah tahu menu ini habis
+              </p>
+            )}
+          </div>
           
           <div className="menu-admin-card__btns">
             <button className="btn--edit" onClick={onEdit}>EDIT</button>

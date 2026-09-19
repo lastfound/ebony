@@ -60,4 +60,18 @@ class AIController extends Controller
         
         return response()->json($analysis);
     }
+
+    /**
+     * Endpoint publik: kembalikan daftar menu yang sedang habis/tidak tersedia.
+     * Digunakan oleh AI chatbot dan bisa juga ditampilkan di frontend publik.
+     */
+    public function soldOutMenus()
+    {
+        $menus = $this->aiService->getSoldOutMenus();
+        return response()->json([
+            'success' => true,
+            'sold_out' => $menus,
+            'count' => count($menus),
+        ]);
+    }
 }
