@@ -44,7 +44,7 @@ export default function Footer() {
             {/* Embed Google Maps */}
             <iframe 
               title="Ebony Cafe Maps"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3956.8407338781373!2d109.2291566!3d-7.3155734!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e655ea49d96001d%3A0x6a0c0a32dcfa73df!2sBaturaden!5e0!3m2!1sen!2sid!4v1714578125712!5m2!1sen!2sid" 
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3957.1501434984216!2d109.2277210750004!3d-7.337029992671468!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x2e6ff5e8a0aeff81%3A0x4bc83f2db22f9f40!2sEbony%20Cafe!5e0!3m2!1sen!2sid!4v1789959749927!5m2!1sen!2sid" 
               width="100%" 
               height="140" 
               style={{ border: 0, borderRadius: 8, marginTop: 16, opacity: 0.9, filter: 'grayscale(0.3) contrast(1.2)' }} 
