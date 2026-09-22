@@ -8,7 +8,7 @@ const navItems = [
   { to: '/admin/menu-management', icon: '✕', label: 'MENU MANAGEMENT' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ unreadCount = 0, onClearUnread }) {
   const { admin, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -20,6 +20,12 @@ export default function Sidebar() {
     }
     logout();
     navigate('/admin/login');
+  };
+
+  const handleNavClick = (item) => {
+    if (item.to === '/admin/reservations' && onClearUnread) {
+      onClearUnread();
+    }
   };
 
   return (
@@ -39,12 +45,16 @@ export default function Sidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={() => handleNavClick(item)}
             className={({ isActive }) =>
               `sidebar__link ${isActive ? 'sidebar__link--active' : ''}`
             }
           >
             <span className="sidebar__icon">{item.icon}</span>
             <span>{item.label}</span>
+            {item.to === '/admin/reservations' && unreadCount > 0 && (
+              <span className="sidebar__badge sidebar__badge--pulse">{unreadCount}</span>
+            )}
           </NavLink>
         ))}
       </nav>

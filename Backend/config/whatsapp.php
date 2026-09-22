@@ -3,6 +3,8 @@
 return [
     'driver' => env('WHATSAPP_DRIVER', 'fonnte'),
 
+    'admin_phone' => env('ADMIN_PHONE_NUMBER', ''),
+
     'fonnte_token' => env('FONNTE_TOKEN', ''),
 
     'wablas_token' => env('WABLAS_TOKEN', ''),

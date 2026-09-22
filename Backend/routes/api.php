@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\ReservationController;
@@ -39,10 +40,16 @@ Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index']);
 
+    // Web Push Subscription Management
+    Route::post('/push-subscriptions',        [PushSubscriptionController::class, 'store']);
+    Route::delete('/push-subscriptions',      [PushSubscriptionController::class, 'destroy']);
+    Route::get('/push-subscriptions/check',   [PushSubscriptionController::class, 'check']);
+
     // Reservations (Penting: export-csv diletakkan sebelum {id})
-    Route::get('/reservations',                [ReservationController::class, 'index']);
+Route::get('/reservations',                [ReservationController::class, 'index']);
     Route::post('/reservations',               [ReservationController::class, 'adminStore']);
     Route::get('/reservations/export-csv',     [ReservationController::class, 'exportCsv']);
+    Route::get('/reservations/new',            [ReservationController::class, 'newReservations']);
     Route::get('/reservations/{id}',           [ReservationController::class, 'show']);
     Route::put('/reservations/{id}',           [ReservationController::class, 'update']);
     Route::patch('/reservations/{id}/confirm', [ReservationController::class, 'confirmArrival']);

@@ -3,9 +3,13 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { useAuth } from '../../context/AuthContext';
 import Toggle from '../../components/ui/Toggle';
 import { updateAdminProfile } from '../../api/adminApi';
+import { useWebPush } from '../../hooks/useWebPush';
 
 export default function SettingsPage() {
   const { admin, login } = useAuth();
+  
+  // Web Push Hook
+  const { isSubscribed, loading: pushLoading, error: pushError, subscribe, unsubscribe } = useWebPush();
   
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -110,6 +114,48 @@ export default function SettingsPage() {
             </div>
             <div style={{ transform: 'scale(1.2)' }}>
               <Toggle checked={isDarkMode} onChange={handleThemeToggle} label="Dark Mode" />
+            </div>
+          </div>
+        </div>
+
+        {/* --- NOTIFICATION SECTION --- */}
+        <div className="detail-card" style={{ marginBottom: '32px' }}>
+          <div className="detail-card__header">
+            <span style={{ fontWeight: 600 }}>Web Push Notification</span>
+          </div>
+          <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ fontSize: '16px', marginBottom: '4px' }}>Notifikasi Reservasi</h3>
+              <p style={{ color: 'var(--color-muted)', fontSize: '14px', marginBottom: '8px' }}>
+                Dapatkan notifikasi di browser/HP Anda setiap ada reservasi baru.
+              </p>
+              
+              {pushLoading ? (
+                <span style={{ fontSize: '13px', color: 'var(--color-muted)' }}>Memeriksa status...</span>
+              ) : isSubscribed ? (
+                <span style={{ fontSize: '13px', color: 'var(--color-success)', fontWeight: 'bold' }}>✅ Notifikasi Aktif</span>
+              ) : (
+                <span style={{ fontSize: '13px', color: 'var(--color-danger)', fontWeight: 'bold' }}>🔕 Notifikasi Belum Aktif</span>
+              )}
+
+              {pushError && (
+                <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--color-danger)' }}>
+                  {pushError}
+                </div>
+              )}
+            </div>
+            <div style={{ marginLeft: '16px' }}>
+              {!pushLoading && (
+                isSubscribed ? (
+                  <button type="button" onClick={unsubscribe} className="btn" style={{ background: '#f5f5f5', color: 'var(--color-danger)' }}>
+                    Matikan
+                  </button>
+                ) : (
+                  <button type="button" onClick={subscribe} className="btn btn--primary">
+                    🔔 Aktifkan
+                  </button>
+                )
+              )}
             </div>
           </div>
         </div>

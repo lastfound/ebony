@@ -11,7 +11,7 @@
 
 ---
 
-# IMPLEMENTATION STATUS (As of Sep 17, 2026)
+# IMPLEMENTATION STATUS (Update Sep 23, 2026)
 
 ## ✅ Selesai (DONE)
 - **Customer AI (Floating AI Chat):** UI Floating chatbot di frontend (`Ask Ebony AI`) telah selesai dan terintegrasi.
@@ -22,6 +22,11 @@
 - **Reservation Assistance:** AI dapat menangkap informasi yang diperlukan (tanggal, jumlah tamu) di chat untuk persiapan reservasi.
 - **Polite Error Handling:** Error message dari AI sudah diperhalus untuk mengarahkan customer menghubungi Admin di WhatsApp jika terjadi kendala teknis atau ketika ketersediaan meja tidak diketahui AI.
 - **Guest Request Analyzer (Admin AI):** Fungsional ✨ *AI Guest Request Analyzer* di halaman *Reservation Detail* untuk staf sudah terimplementasi dan berfungsi penuh untuk ekstrak sentimen dan langkah antisipasi staf.
+- **AI Reservation Auto-Save + WhatsApp Confirmation ke Tamu:** AI yang sudah punya data reservasi lengkap akan otomatis menyimpan reservasi ke database dan mengirim pesan konfirmasi WhatsApp ke nomor tamu via gateway (Fonnte/Wablas).
+- **Reservasi Web → Notifikasi WhatsApp ke Admin:** Setiap reservasi baru dari form website otomatis mengirim pesan WhatsApp ke nomor admin (via `WhatsAppService`, driver Fonnte/Wablas) + Web Push browser.
+- **Admin Dashboard Real-time Alert:** Ada polling reservasi baru (`GET /admin/reservations/new`) dengan alert suara, toast notifikasi, blink judul tab, dan flash layar di dashboard admin.
+- **Web Push Notification (FCM + VAPID):** Notifikasi browser ke HP admin ketika ada reservasi baru — termasuk auto-register service worker di `AdminLayout`, halaman *Settings* untuk konfigurasi, dan job queue `SendWebPushNotification`.
+- **Responsive UI:** Tampilan website dan AI chat sudah responsif untuk *smartphone*/*tablet*/*desktop*.
 
 ## ❌ Belum Dibuat / Out of Scope
 Sesuai arahan Scope PRD, fitur di bawah ini memang belum diimplementasikan di versi saat ini (disengaja):
@@ -633,6 +638,36 @@ AI_API_KEY=
 ```
 
 pada Laravel backend.
+
+> **⚠️ NOTE — OPEN DISCUSSION (19 Sep 2026)**
+>
+> **Masalah:** Hostinger (platform deploy yang digunakan) kemungkinan **tidak memiliki Secret Manager**. Artinya, API Key (seperti `AI_API_KEY` untuk Groq/Gemini dan `FONNTE_TOKEN` untuk WhatsApp gateway) tidak bisa disimpan dengan aman melalui environment variable management berbasis platform.
+>
+> **Solusi yang diusulkan:** Simpan API Key di **tabel database khusus** (`app_settings`) sebagai alternatif `.env`.
+>
+> **Konsep tabel:**
+> ```sql
+> app_settings
+> ├── id
+> ├── key        (e.g. "AI_API_KEY", "FONNTE_TOKEN")
+> ├── value      (nilai key, dienkripsi jika perlu)
+> ├── description
+> ├── created_at
+> └── updated_at
+> ```
+>
+> **Alur penggunaan:**
+> - Admin mengisi key melalui phpMyAdmin Hostinger (bukan lewat file `.env`)
+> - Laravel mengambil key dari tabel ini saat runtime
+> - Dipanggil via helper: `setting('AI_API_KEY')`
+>
+> **Yang perlu didiskusikan tim:**
+> - [ ] Apakah Hostinger memiliki cara lain untuk manage environment variables? (cek di panel Hostinger)
+> - [ ] Apakah perlu enkripsi nilai key di database?
+> - [ ] Siapa yang berhak mengubah key di database? (hanya superadmin?)
+> - [ ] Apakah perlu UI admin untuk manage app settings, atau cukup via phpMyAdmin?
+>
+> **Status:** ⏳ Menunggu keputusan tim
 
 ---
 
@@ -1503,7 +1538,35 @@ Tagline fitur:
 
 # 41. IMPLEMENTATION TRACKING (UPDATE)
 
-## YANG SUDAH DIKERJAKAN
+## UPDATE JADI — 23 Sep 2026 (Push: Web Push + Notifikasi WA Admin)
+
+### ✅ YANG SUDAH DIKERJAKAN
+
+1. **Web Push Notification (Browser → HP Admin)**
+   - Backend: Job `SendWebPushNotification` (queue), service `WebPushService`, controller `PushSubscriptionController`, tabel `push_subscriptions`, config `fcm.php`, VAPID via minishlink/web-push.
+   - Frontend: `useWebPush` hook + service worker `web-push-sw.js`, auto-enable push sekali per sesi di `AdminLayout`, inject `firebase` (package.json).
+   - Settings Page: form konfigurasi Firebase/VAPID ditampilkan di admin.
+
+2. **Notifikasi WhatsApp ke Admin untuk Reservasi dari Website**
+   - `ReservationController@store` sekarang mengirim pesan WA ke nomor admin (`ADMIN_PHONE_NUMBER`) via `WhatsAppService` (driver Fonnte/Wablas), selain Web Push.
+   - Format pesan: 🔔 RESERVASI BARU — kode booking, nama, no HP, tanggal, jam, jumlah.
+   - Config: `config/whatsapp.php` ditambah `admin_phone`; `.env`/`.env.example` ditambah `ADMIN_PHONE_NUMBER`.
+
+3. **Admin Dashboard Real-time Alert**
+   - Endpoint baru `GET /api/admin/reservations/new?since=...` (polling).
+   - `AdminLayout` polling tiap 5 detik: memunculkan toast, suara alert, blink judul tab, dan flash layar saat ada reservasi baru.
+
+4. **AI Reservation Auto-Save + Konfirmasi WA ke Tamu** (sudah ada sebelumnya, diverifikasi kembali)
+   - AI yang punya data reservasi lengkap menyimpan otomatis ke DB dan kirim konfirmasi WA ke tamu.
+
+5. **Responsive UI** (sudah ada sebelumnya): web & AI chat responsif.
+
+### ⏳ YANG BELUM DIKERJAKAN / TERGANTUNG
+
+1. **Aktivasi Akun Fonnte + `FONNTE_TOKEN`:** Kode notifikasi WA sudah siap, tapi `.env` masih `FONNTE_TOKEN=` (kosong) karena client belum selesai daftar & mendapatkan token gateway di dashboard Fonnte. WA ke admin belum terkirim sampai token diisi. (Tim sudah analisa: pakai mode Cloud API/device gateway Fonnte, JANGAN scan QR WA pribadi agar aman dari banned.)
+2. **Meta WhatsApp Cloud API (resmi):** Opsi dipertimbangkan tapi ditunda — keputusan sementara memakai Fonnte (lebih cepat & langsung jalan). Kalau client mau nomor pengirim atas nama toko sendiri, bisa dievaluasi lagi.
+3. **Test End-to-End WA:** Perlu dicoba reservasi sungguhan setelah token terisi untuk memastikan pesan sampai ke HP admin (belum dilakukan karena token belum ada).
+4. **Testing seluruh flow AI** (menu rekomendasi, pairing, dietary, reservasi) setelah integrasi notifikasi ini — masih pakai pengujian manual.
 
 ### 1. Backend & Database
 - Dibuat migration untuk tabel menus (menambahkan ingredients, dietary_tags, llergens, spicy_level).

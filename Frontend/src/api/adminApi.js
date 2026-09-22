@@ -28,6 +28,11 @@ export const getReservations = async(params = {}) => {
     return res.data;
 };
 
+export const getNewReservations = async(since) => {
+    const res = await api.get('/admin/reservations/new', { params: since ? { since } : {} });
+    return res.data;
+};
+
 export const getReservationDetail = async(id) => {
     const res = await api.get(`/admin/reservations/${id}`);
     return res.data;

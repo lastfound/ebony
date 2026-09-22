@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendWebPushNotification;
 use App\Models\Reservation;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -60,6 +61,36 @@ class ReservationController extends Controller
             'is_arrived'     => false,
             'status'         => 'pending',
         ]);
+
+        // Kirim push notification ke admin via Web Push (async queue)
+        // Jika gagal, reservasi tetap dianggap berhasil
+        try {
+            SendWebPushNotification::dispatch($reservation);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error(
+                'Gagal dispatch Web Push job untuk reservasi #' . $reservation->booking_number . ': ' . $e->getMessage()
+            );
+        }
+
+        // Kirim notifikasi WhatsApp ke admin via gatewa (Fonnte/Wablas)
+        // Jika gagal, reservasi tetap dianggap berhasil
+        try {
+            $adminPhone = config('whatsapp.admin_phone');
+            if ($adminPhone) {
+                $wa = app(\App\Services\WhatsAppService::class);
+                $wa->send($adminPhone, "🔔 RESERVASI BARU — Ebony Cafe\n" .
+                    "Kode Booking: #{$reservation->booking_number}\n" .
+                    "Nama: {$reservation->guest_name}\n" .
+                    "No HP: {$reservation->phone}\n" .
+                    "Tanggal: {$reservation->date}\n" .
+                    "Jam: {$reservation->time}\n" .
+                    "Jumlah: {$reservation->party_size} orang");
+            }
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error(
+                'Gagal kirim WhatsApp notif admin untuk reservasi #' . $reservation->booking_number . ': ' . $e->getMessage()
+            );
+        }
 
         return response()->json([
             'message'        => 'Reservasi berhasil dikirim.',
@@ -129,6 +160,43 @@ class ReservationController extends Controller
     public function adminStore(Request $request)
     {
         return $this->store($request);
+    }
+
+    /**
+     * Reservasi baru sejak timestamp tertentu (untuk polling real-time admin).
+     * GET /api/admin/reservations/new?since=ISO8601
+     */
+    public function newReservations(Request $request)
+    {
+        $since = $request->query('since');
+        $from = $since && strtotime($since)
+            ? Carbon::parse($since)
+            : Carbon::now()->subMinutes(10);
+
+        $reservations = Reservation::where('created_at', '>', $from)
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('created_at', 'asc')
+            ->limit(20)
+            ->get();
+
+        $formatted = $reservations->map(function ($r) {
+            return [
+                'id'             => $r->id,
+                'booking_number' => $r->booking_number,
+                'guest_name'     => $r->guest_name,
+                'party_size'     => $r->party_size,
+                'status'         => $r->status,
+                'date'           => is_string($r->date) ? $r->date : Carbon::parse($r->date)->format('Y-m-d'),
+                'time'           => is_string($r->time) ? substr($r->time, 0, 5) : Carbon::parse($r->time)->format('H:i'),
+                'formatted_date' => Carbon::parse($r->date)->format('d M Y'),
+                'created_at'     => $r->created_at->toIso8601String(),
+            ];
+        });
+
+        return response()->json([
+            'data' => $formatted,
+            'server_time' => Carbon::now()->toIso8601String(),
+        ]);
     }
 
     /**
