@@ -18,6 +18,7 @@ export default function MenuManagementPage() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [isPromoChecked, setIsPromoChecked] = useState(false);
 
   const fetchData = () => {
     getAdminMenus().then(data => setMenus(Array.isArray(data) ? data : [])).catch(() => setMenus([]));
@@ -28,7 +29,6 @@ export default function MenuManagementPage() {
     fetchData();
   }, []);
 
-  // Hitung menu yang sedang habis untuk ditampilkan di banner AI
   const soldOutCount = menus.filter(m => !m.is_available).length;
   const soldOutNames = menus.filter(m => !m.is_available).map(m => m.name);
 
@@ -71,6 +71,7 @@ export default function MenuManagementPage() {
     e.preventDefault();
     setFormLoading(true);
     const fd = new FormData(e.target);
+    fd.set('is_promo', isPromoChecked ? '1' : '0');
 
     try {
       if (editItem) {
@@ -92,7 +93,6 @@ export default function MenuManagementPage() {
     setFormLoading(true);
     const fd = new FormData(e.target);
 
-    // Combine date + time into datetime
     const dateVal = fd.get('date');
     const timeVal = fd.get('time');
     if (dateVal && timeVal) {
@@ -117,19 +117,17 @@ export default function MenuManagementPage() {
 
   return (
     <AdminLayout>
-      {/* SECTION A: MENU */}
       <div className="page-header">
         <div>
           <span className="page-label">MANAGEMENT</span>
           <h1 className="page-title">Menu Management</h1>
           <p className="page-subtitle">Add, edit, or adjust the status of our culinary offerings.</p>
         </div>
-        <button className="btn btn--primary" onClick={() => { setEditItem(null); setShowMenuModal(true); }}>
+        <button className="btn btn--primary" onClick={() => { setEditItem(null); setIsPromoChecked(false); setShowMenuModal(true); }}>
           + Add New
         </button>
       </div>
 
-      {/* Banner AI Integration */}
       <div style={{
         margin: '0 0 20px',
         padding: '12px 18px',
@@ -143,14 +141,10 @@ export default function MenuManagementPage() {
         <span style={{ fontSize: '1.2rem' }}>{soldOutCount > 0 ? '🤖⚠️' : '🤖✅'}</span>
         <div>
           <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: soldOutCount > 0 ? '#c2410c' : '#15803d' }}>
-            {soldOutCount > 0
-              ? `AI Chatbot mendeteksi ${soldOutCount} menu sedang HABIS`
-              : 'AI Chatbot: Semua menu tersedia — tidak ada yang habis'}
+            {soldOutCount > 0 ? `AI Chatbot mendeteksi ${soldOutCount} menu sedang HABIS` : 'AI Chatbot: Semua menu tersedia'}
           </p>
           <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#6b7280' }}>
-            {soldOutCount > 0
-              ? `Menu habis: ${soldOutNames.join(', ')}. Chatbot akan otomatis memberitahu tamu jika menanyakan menu ini.`
-              : 'Tamu yang chat dengan AI akan mendapat info menu terkini secara real-time.'}
+            {soldOutCount > 0 ? `Menu habis: ${soldOutNames.join(', ')}.` : 'Semua menu sinkron secara real-time.'}
           </p>
         </div>
       </div>
@@ -168,19 +162,36 @@ export default function MenuManagementPage() {
 
       <div className="menu-admin-grid">
         {filteredMenus.map(menu => (
-          <MenuAdminCard
-            key={menu.id}
-            menu={menu}
-            onToggle={() => handleToggle(menu.id, menu.is_available)}
-            onEdit={() => { setEditItem(menu); setShowMenuModal(true); }}
-            onDelete={() => handleDeleteMenu(menu.id)}
-          />
+          <div key={menu.id} style={{ position: 'relative' }}>
+            {(menu.is_promo === 1 || menu.is_promo === true) && (
+              <span style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                background: '#d4af37',
+                color: '#fff',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                zIndex: 5
+              }}>PROMO ACTIVE</span>
+            )}
+            <MenuAdminCard
+              menu={menu}
+              onToggle={() => handleToggle(menu.id, menu.is_available)}
+              onEdit={() => { 
+                setEditItem(menu); 
+                setIsPromoChecked(menu.is_promo === 1 || menu.is_promo === true); 
+                setShowMenuModal(true); 
+              }}
+              onDelete={() => handleDeleteMenu(menu.id)}
+            />
+          </div>
         ))}
       </div>
 
-      {/* SECTION B: EVENTS */}
       <hr className="divider divider--section" style={{ marginTop: '64px', marginBottom: '32px' }} />
-
       <div className="events-admin-section">
         <div className="events-admin-section__header">
           <h2 className="section-title" style={{ fontFamily: 'var(--font-serif)', fontSize: 32 }}>Upcoming Events</h2>
@@ -190,8 +201,8 @@ export default function MenuManagementPage() {
         </div>
 
         {events.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', background: '#fff', borderRadius: '8px', border: '1px solid var(--color-border)', color: 'var(--color-muted)' }}>
-            No upcoming events. Click "Add New Event" to create one.
+          <div style={{ padding: '40px', textAlign: 'center', background: '#fff', borderRadius: '8px', color: 'var(--color-muted)' }}>
+            No upcoming events.
           </div>
         ) : (
           <div className="events-admin-grid">
@@ -207,11 +218,11 @@ export default function MenuManagementPage() {
         )}
       </div>
 
-      {/* Modal Menu */}
       {showMenuModal && (
         <Modal title={editItem ? 'Edit Menu' : 'Add New Menu'} onClose={() => setShowMenuModal(false)}>
           <div style={{ padding: '10px 0 20px', textAlign: 'left' }}>
-            <form className="admin-form" onSubmit={handleMenuSubmit}>
+            {/* KOREKSI UTAMA: encType="multipart/form-data" ditambahkan agar gambar mau terkirim */}
+            <form className="admin-form" onSubmit={handleMenuSubmit} encType="multipart/form-data">
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Menu Name *</label>
                 <input type="text" name="name" className="form-input" defaultValue={editItem?.name || ''} placeholder="e.g. Pan-Seared Scallops" required />
@@ -222,33 +233,62 @@ export default function MenuManagementPage() {
                   <label className="form-label">Category *</label>
                   <select name="category" className="form-input" defaultValue={editItem?.category || ''} required>
                     <option value="">-- Select Category --</option>
-                    <option value="Starters">Starters</option>
-                    <option value="Mains">Mains</option>
-                    <option value="Desserts">Desserts</option>
-                    <option value="Beverages">Beverages</option>
+                    {CATEGORIES.filter(c => c !== 'All Items').map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Price (Rp) *</label>
-                  <input type="number" name="price" className="form-input" defaultValue={editItem?.price || ''} placeholder="e.g. 150000" required />
+                  <input type="number" name="price" className="form-input" defaultValue={editItem?.price || ''} placeholder="e.g. 85000" required />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Upload Image</label>
-                <input type="file" name="image" className="form-input" accept="image/*" />
-                {editItem?.image_url && <small style={{ color: 'var(--color-muted)', display: 'block', marginTop: '4px' }}>Saat ini ada gambar tersimpan.</small>}
+                <label className="form-label">Description *</label>
+                <textarea name="description" className="form-input" style={{ height: '70px', resize: 'none' }} defaultValue={editItem?.description || ''} placeholder="Describe ingredients..." required></textarea>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">Description</label>
-                <textarea name="description" className="form-input form-textarea" rows="3" defaultValue={editItem?.description || ''} placeholder="Short description about the dish..."></textarea>
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label className="form-label">Menu Image {editItem ? '(Leave blank to keep current)' : '*'}</label>
+                <input type="file" name="image" className="form-input" accept="image/*" required={!editItem} />
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <div style={{ background: '#fff9f0', padding: '14px', borderRadius: '8px', border: '1px dashed #d4af37', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="is_promo_checkbox" 
+                    checked={isPromoChecked} 
+                    onChange={(e) => setIsPromoChecked(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="is_promo_checkbox" style={{ fontWeight: 700, color: '#1a1212', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    Tampilkan Menu Ini Sebagai Banner Promo Customer 🌟
+                  </label>
+                </div>
+                {isPromoChecked && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid rgba(212, 175, 55, 0.2)', paddingTop: '12px', marginTop: '12px' }}>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700 }}>Promo Category Label</label>
+                      <input type="text" name="promo_badge" className="form-input" style={{ padding: '6px 10px', fontSize: '0.8rem' }} defaultValue={editItem?.promo_badge || 'MENU PROMOTION'} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700 }}>Promotion Tagline (Gold Text)</label>
+                      <input type="text" name="promo_tagline" className="form-input" style={{ padding: '6px 10px', fontSize: '0.8rem' }} defaultValue={editItem?.promo_tagline || 'ENJOY 50% OFF'} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label" style={{ fontSize: '0.78rem', fontWeight: 700 }}>Promotion Subtext</label>
+                      <input type="text" name="promo_subtext" className="form-input" style={{ padding: '6px 10px', fontSize: '0.8rem' }} defaultValue={editItem?.promo_subtext || 'A special offer for selected Ebony favorites.'} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
                 <button type="button" className="btn btn--outline-dark" onClick={() => setShowMenuModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn--primary" disabled={formLoading}>
-                  {formLoading ? 'Saving...' : 'Save Menu'}
+                  {formLoading ? 'Saving...' : editItem ? 'Update Menu' : 'Create Menu'}
                 </button>
               </div>
             </form>
@@ -256,42 +296,40 @@ export default function MenuManagementPage() {
         </Modal>
       )}
 
-      {/* Modal Event */}
       {showEventModal && (
         <Modal title={editItem ? 'Edit Event' : 'Add New Event'} onClose={() => setShowEventModal(false)}>
           <div style={{ padding: '10px 0 20px', textAlign: 'left' }}>
-            <form className="admin-form" onSubmit={handleEventSubmit}>
+            <form className="admin-form" onSubmit={handleEventSubmit} encType="multipart/form-data">
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Event Title *</label>
-                <input type="text" name="title" className="form-input" defaultValue={editItem?.title || ''} placeholder="e.g. Live Jazz Evening" required />
+                <input type="text" name="title" className="form-input" defaultValue={editItem?.title || ''} placeholder="e.g. Jazz Night Symphony" required />
               </div>
 
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Date *</label>
-                  <input type="date" name="date" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')[0] : ''} required />
+                  <input type="date" name="date" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T') : ''} required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Time *</label>
-                  <input type="time" name="time" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')[1]?.substring(0,5) : ''} required />
+                  <input type="time" name="time" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')?.substring(0, 5) : ''} required />
                 </div>
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label className="form-label">Upload Cover Image</label>
-                <input type="file" name="image" className="form-input" accept="image/*" />
-                {editItem?.image_url && <small style={{ color: 'var(--color-muted)', display: 'block', marginTop: '4px' }}>Saat ini ada cover tersimpan.</small>}
+                <label className="form-label">Description *</label>
+                <textarea name="description" className="form-input" style={{ height: '70px', resize: 'none' }} defaultValue={editItem?.description || ''} placeholder="Describe event details..." required></textarea>
               </div>
 
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label className="form-label">Description / Details</label>
-                <textarea name="description" className="form-input form-textarea" rows="4" defaultValue={editItem?.description || ''} placeholder="Information about the event..."></textarea>
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label className="form-label">Event Banner {editItem ? '(Leave blank to keep current)' : '*'}</label>
+                <input type="file" name="image" className="form-input" accept="image/*" required={!editItem} />
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <div className="form-actions" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
                 <button type="button" className="btn btn--outline-dark" onClick={() => setShowEventModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn--primary" disabled={formLoading}>
-                  {formLoading ? 'Saving...' : 'Save Event'}
+                  {formLoading ? 'Saving...' : editItem ? 'Update Event' : 'Create Event'}
                 </button>
               </div>
             </form>

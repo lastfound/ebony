@@ -25,7 +25,7 @@ class DashboardController extends Controller
 
         $resChange = $totalReservationsYesterday > 0
             ? round((($totalReservationsToday - $totalReservationsYesterday) / $totalReservationsYesterday) * 100)
-            : 0; // Ubah ke 0 agar persentase riil saat data baru
+            : 0;
 
         // 2. Revenue Today
         $todayReservationIds = Reservation::whereDate('date', $today)->pluck('id');
@@ -35,7 +35,7 @@ class DashboardController extends Controller
 
         if ($preorderRevenue == 0) {
             $totalGuests = Reservation::whereDate('date', $today)->sum('party_size');
-            $revenueAmount = $totalGuests * 150000; // Hitung murni dari jumlah tamu hari ini
+            $revenueAmount = $totalGuests * 150000;
         } else {
             $revenueAmount = $preorderRevenue;
         }
@@ -50,8 +50,24 @@ class DashboardController extends Controller
             ->take(3)
             ->get(['id', 'name', 'description', 'image_url']);
 
+        // ============================================================
+        // 🌟 INTEGRASI DATA PROMO BARU UNTUK BANNER BANNER CAROUSEL
+        // ============================================================
+        // Mengambil semua menu aktif yang dicentang "is_promo" oleh admin
+        $promoItems = Menu::where('is_available', true)
+            ->where('is_promo', true)
+            ->get([
+                'id', 
+                'name', 
+                'description', 
+                'image_url', 
+                'promo_badge', 
+                'promo_tagline', 
+                'promo_subtext'
+            ]);
+
         return response()->json([
-            'total_reservations' => $totalReservationsToday, // Perbaikan di baris ini
+            'total_reservations' => $totalReservationsToday,
             'reservation_change' => $resChange,
             'revenue_today'      => number_format($revenueAmount, 0, ',', '.'),
             'revenue_change'     => 8,
@@ -59,6 +75,9 @@ class DashboardController extends Controller
             'active_menus'       => $activeMenus,
             'seasonal_count'     => $seasonalCount,
             'trending_items'     => $trendingItems,
+            
+            // Masukkan data promo ke dalam JSON respon akhir
+            'promo_items'        => $promoItems, 
         ]);
     }
 }

@@ -23,14 +23,24 @@ class Menu extends Model
         'dietary_tags',
         'allergens',
         'spicy_level',
+        
+        // 🌟 KOREKSI UTAMA: Mengizinkan data promo baru lolos masuk ke database MySQL
+        'is_promo',
+        'promo_badge',
+        'promo_tagline',
+        'promo_subtext',
     ];
 
     protected $casts = [
         'price' => 'float',
         'is_featured' => 'boolean',
         'is_available' => 'boolean',
+        'is_promo' => 'boolean', // Memaksa tipe data dibaca boolean true/false di React
     ];
 
+    /**
+     * Accessor pintar bawaan Anda untuk otomatis melengkapi link gambar storage
+     */
     public function getImageUrlAttribute($value)
     {
         if (!$value) {
@@ -44,6 +54,9 @@ class Menu extends Model
         return url('storage/' . ltrim($value, '/'));
     }
 
+    /**
+     * Relasi ke item pemesanan meja bawaan project Anda
+     */
     public function preorders()
     {
         return $this->hasMany(ReservationItem::class, 'menu_id');
