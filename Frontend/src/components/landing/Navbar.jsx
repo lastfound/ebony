@@ -16,9 +16,9 @@ export default function Navbar() {
     if (menuOpen) {
       document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = ''; // reset ke default (bukan 'unset')
     }
-    return () => { document.body.style.overflow = 'unset'; };
+    return () => { document.body.style.overflow = ''; };
   }, [menuOpen]);
 
   const navItems = [

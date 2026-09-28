@@ -13,6 +13,25 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 70px; /* Offset for fixed navbar */
+  overscroll-behavior: none; /* Prevent bounce effect */
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted);
 }
 
 body {
@@ -22,6 +41,7 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -webkit-overflow-scrolling: touch; /* Smooth momentum scrolling on iOS */
 }
 
 img {
