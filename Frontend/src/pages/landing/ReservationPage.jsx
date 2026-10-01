@@ -64,7 +64,7 @@ export default function ReservationPage() {
     const hours = [];
     for (let h = startHour; h <= endHour; h++) {
       const val = h.toString().padStart(2, '0');
-      let label = '';
+      let label;
 
       if (h === 11) label = '11:00 AM (Pagi / Morning)';
       else if (h === 12) label = '12:00 PM (Siang / Noon)';

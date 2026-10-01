@@ -52,7 +52,9 @@ Route::get('/reservations',                [ReservationController::class, 'index
     Route::get('/reservations/new',            [ReservationController::class, 'newReservations']);
     Route::get('/reservations/{id}',           [ReservationController::class, 'show']);
     Route::put('/reservations/{id}',           [ReservationController::class, 'update']);
+    Route::post('/reservations/{id}/resend-notification', [ReservationController::class, 'resendNotification']);
     Route::patch('/reservations/{id}/confirm', [ReservationController::class, 'confirmArrival']);
+
 
     // Menus
     Route::get('/menus',              [MenuController::class, 'index']);

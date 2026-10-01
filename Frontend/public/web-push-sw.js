@@ -9,7 +9,7 @@ self.addEventListener('push', function(event) {
     if (event.data) {
         try {
             data = event.data.json();
-        } catch (e) {
+        } catch {
             data = { body: event.data.text() };
         }
     }
@@ -40,7 +40,7 @@ self.addEventListener('notificationclick', function(event) {
     const clickUrl = event.notification.data.url;
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
             // Jika ada tab dashboard admin yang sudah terbuka, gunakan tab itu
             for (let i = 0; i < windowClients.length; i++) {
                 const client = windowClients[i];
@@ -50,8 +50,8 @@ self.addEventListener('notificationclick', function(event) {
                 }
             }
             // Jika tidak ada tab terbuka, buka tab baru
-            if (clients.openWindow) {
-                return clients.openWindow(clickUrl);
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(clickUrl);
             }
         })
     );

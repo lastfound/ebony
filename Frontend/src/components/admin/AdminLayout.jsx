@@ -1,24 +1,52 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 import { getNewReservations } from '../../api/adminApi';
 import { playAlertSound } from '../../services/alertSound';
-import { checkSubscriptionStatus, subscribeUserToPush } from '../../services/webPush';
+import { subscribeUserToPush } from '../../services/webPush';
+import { NotificationContext } from '../../context/NotificationContext';
 
 const POLL_INTERVAL = 5000;
 const TOAST_DURATION = 10000;
 const MAX_TOASTS = 3;
+const MAX_NOTIFICATIONS = 30;
+const STORAGE_KEY = 'admin_notifications';
+
+function loadStoredNotifications() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, MAX_NOTIFICATIONS) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function AdminLayout({ children }) {
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState(loadStoredNotifications);
   const [alerts, setAlerts] = useState([]);
   const [flash, setFlash] = useState(false);
 
   const seenIdsRef = useRef(new Set());
+  const storedIdsRef = useRef(new Set(loadStoredNotifications().map((n) => n.id)));
   const initializedRef = useRef(false);
   const originalTitleRef = useRef(document.title);
   const titleTimerRef = useRef(null);
+
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+    } catch {
+      /* storage penuh / diblokir — abaikan, notifikasi tetap jalan di memory */
+    }
+  }, [notifications]);
 
   const doTitleBlink = () => {
     clearInterval(titleTimerRef.current);
@@ -36,11 +64,23 @@ export default function AdminLayout({ children }) {
     }, 500);
   };
 
+  const toNotification = (r) => ({
+    id: r.id,
+    guest_name: r.guest_name,
+    booking_number: r.booking_number,
+    party_size: r.party_size,
+    time: r.time,
+    formatted_date: r.formatted_date,
+    source: r.source || 'web',
+    created_at: r.created_at || new Date().toISOString(),
+  });
+
   const triggerAlerts = (newReservations) => {
     if (newReservations.length === 0) return;
 
+    const now = Date.now();
     const items = newReservations.map((r) => ({
-      key: `${r.id}-${Date.now()}`,
+      key: `${r.id}-${now}`,
       id: r.id,
       guest_name: r.guest_name,
       booking_number: r.booking_number,
@@ -50,7 +90,13 @@ export default function AdminLayout({ children }) {
     }));
 
     setAlerts((prev) => [...prev, ...items].slice(-MAX_TOASTS));
-    setUnreadCount((c) => c + newReservations.length);
+
+    // Masukkan ke daftar notifikasi lonceng (yang bisa diklik admin)
+    setNotifications((prev) => {
+      const incoming = newReservations.map((r) => ({ ...toNotification(r), read: false }));
+      return [...incoming, ...prev].slice(0, MAX_NOTIFICATIONS);
+    });
+
     playAlertSound();
     doTitleBlink();
 
@@ -70,7 +116,25 @@ export default function AdminLayout({ children }) {
     navigate(`/admin/reservations/${alert.id}`);
   };
 
-  const clearUnread = () => setUnreadCount(0);
+  const clearUnread = useCallback(() => {
+    setNotifications((prev) => prev.map((n) => (n.read ? n : { ...n, read: true })));
+  }, []);
+
+  const markAsRead = useCallback((id) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+  }, []);
+
+  const markAllAsRead = clearUnread;
+
+  const removeNotification = useCallback((id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  }, []);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +157,16 @@ export default function AdminLayout({ children }) {
 
         if (!initializedRef.current) {
           initializedRef.current = true; // Polling pertama = baseline, tidak bunyikan alert
+
+          // Reservasi yang masuk saat adminAway tetap dimasukkan ke lonceng sebagai
+          // belum dibaca, supaya tidak ada yang hilang — hanya bunyi/flash yang ditahan.
+          const missed = fresh.filter((r) => !storedIdsRef.current.has(r.id));
+          if (missed.length > 0) {
+            setNotifications((prev) => {
+              const incoming = missed.map((r) => ({ ...toNotification(r), read: false }));
+              return [...incoming, ...prev].slice(0, MAX_NOTIFICATIONS);
+            });
+          }
           return;
         }
 
@@ -162,40 +236,57 @@ export default function AdminLayout({ children }) {
     return () => clearTimeout(t);
   }, [alerts]);
 
+  const notificationValue = useMemo(
+    () => ({
+      notifications,
+      unreadCount,
+      markAsRead,
+      markAllAsRead,
+      removeNotification,
+      clearNotifications,
+    }),
+    [notifications, unreadCount, markAsRead, markAllAsRead, removeNotification, clearNotifications]
+  );
+
   return (
-    <div className="admin-layout">
-      <Sidebar unreadCount={unreadCount} onClearUnread={clearUnread} />
-      <main className="admin-content">
-        {children}
-      </main>
-
-      {flash && <div className="screen-flash" />}
-
-      <div className="reservation-toast-stack">
-        {alerts.map((a) => (
-          <div key={a.key} className="reservation-toast" role="alert" onClick={() => openAlert(a.key)}>
-            <div className="reservation-toast__icon">🔔</div>
-            <div className="reservation-toast__body">
-              <span className="reservation-toast__label">RESERVASI BARU</span>
-              <span className="reservation-toast__title">{a.guest_name}</span>
-              <span className="reservation-toast__meta">
-                {a.formatted_date} • {a.time} • {a.party_size} orang • #{a.booking_number}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="reservation-toast__close"
-              aria-label="Tutup"
-              onClick={(e) => {
-                e.stopPropagation();
-                dismissAlert(a.key);
-              }}
-            >
-              ✕
-            </button>
+    <NotificationContext.Provider value={notificationValue}>
+      <div className="admin-layout">
+        <Sidebar unreadCount={unreadCount} onClearUnread={clearUnread} />
+        <main className="admin-content">
+          <div className="admin-toolbar">
+            <NotificationBell />
           </div>
-        ))}
+          {children}
+        </main>
+
+        {flash && <div className="screen-flash" />}
+
+        <div className="reservation-toast-stack">
+          {alerts.map((a) => (
+            <div key={a.key} className="reservation-toast" role="alert" onClick={() => openAlert(a.key)}>
+              <div className="reservation-toast__icon">🔔</div>
+              <div className="reservation-toast__body">
+                <span className="reservation-toast__label">RESERVASI BARU</span>
+                <span className="reservation-toast__title">{a.guest_name}</span>
+                <span className="reservation-toast__meta">
+                  {a.formatted_date} • {a.time} • {a.party_size} orang • #{a.booking_number}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="reservation-toast__close"
+                aria-label="Tutup"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dismissAlert(a.key);
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </NotificationContext.Provider>
   );
 }

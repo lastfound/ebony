@@ -31,7 +31,23 @@ export default function ReservationsPage() {
   };
 
   useEffect(() => {
-    fetchReservations();
+    let cancelled = false;
+
+    getReservations({ page, per_page: PER_PAGE })
+      .then(res => {
+        if (cancelled) return;
+        const dataList = res.data?.data || res.data || [];
+        setReservations(dataList);
+        setTotal(res.total || res.data?.total || dataList.length);
+        setLastPage(res.last_page || res.data?.last_page || 1);
+      })
+      .catch(() => {
+        if (!cancelled) setReservations([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [page]);
 
   // Reset state waktu saat modal ditutup/dibuka
@@ -63,7 +79,7 @@ export default function ReservationsPage() {
     const hours = [];
     for (let h = startHour; h <= endHour; h++) {
       const val = h.toString().padStart(2, '0');
-      let label = '';
+      let label;
 
       if (h === 11) label = '11:00 AM (Pagi / Morning)';
       else if (h === 12) label = '12:00 PM (Siang / Noon)';

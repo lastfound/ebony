@@ -60,6 +60,15 @@ export const confirmArrival = async(id) => {
     return res.data;
 };
 
+// Kirim ulang notifikasi admin (Web Push / WhatsApp / Telegram) untuk satu reservasi.
+// channels opsional — kosongkan untuk mencoba semua kanal.
+export const resendReservationNotification = async(id, channels) => {
+    const res = await api.post(`/admin/reservations/${id}/resend-notification`, {
+        channels: channels && channels.length ? channels : undefined,
+    });
+    return res.data;
+};
+
 export const exportReservationsCSV = () => {
     window.open(
         `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'}/admin/reservations/export-csv`,

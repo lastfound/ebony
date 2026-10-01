@@ -46,7 +46,6 @@ export default function DashboardPage() {
           <h1 className="page-title">Dashboard Overview</h1>
           <p className="page-subtitle">Key metrics for today's service.</p>
         </div>
-        <button className="btn btn--icon" aria-label="Notifications" style={{ border: 'none' }}>🔔</button>
       </div>
 
       {loading ? <p>Loading data...</p> : (

@@ -276,8 +276,9 @@ KNOWLEDGE;
             $bookingNumber = (string) mt_rand(1000, 9999);
         } while (\App\Models\Reservation::where('booking_number', $bookingNumber)->exists());
 
-        \App\Models\Reservation::create([
+        $reservation = \App\Models\Reservation::create([
             'booking_number' => $bookingNumber,
+            'source'         => 'ai',
             'guest_name'     => $state['nama'],
             'phone'          => $state['no_hp'],
             'email'          => $state['email'] ?? '',
@@ -292,7 +293,16 @@ KNOWLEDGE;
             'status'         => 'pending',
         ]);
 
-        return ['created' => true, 'booking_number' => $bookingNumber];
+        // Kabari admin dengan channel yang sama seperti reservasi dari form website
+        // (Web Push + WhatsApp + Telegram). Best-effort: kalau gagal, reservasi tetap
+        // tetap tersimpan di database dan tetap masuk ke dashboard admin.
+        try {
+            app(ReservationNotifierService::class)->notifyNewReservation($reservation);
+        } catch (\Throwable $e) {
+            Log::error('Gagal mengirim notifikasi admin untuk reservasi AI #'.$bookingNumber.': '.$e->getMessage());
+        }
+
+        return ['created' => true, 'booking_number' => $bookingNumber, 'reservation_id' => $reservation->id];
     }
 
     protected function extractReservationState(array $historyMessages, string $currentMessage, \Carbon\Carbon $now): array
@@ -476,6 +486,8 @@ KNOWLEDGE;
         }
 
         // 9. Nama, No HP, Email
+        $namePattern = '[A-Za-z][A-Za-z\'\-]{1,20}(?:\s+[A-Za-z][A-Za-z\'\-]{1,20}){0,2}';
+
         foreach ($userTexts as $text) {
             if (!$state['email'] && preg_match('/([a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,})/i', $text, $eMatch)) {
                 $state['email'] = strtolower($eMatch[1]);
@@ -485,14 +497,96 @@ KNOWLEDGE;
                 $state['no_hp'] = preg_replace('/[\s\-]/', '', $pMatch[0]);
             }
 
+            // Nama yang menyebutkannya eksplisit: "nama saya Budi", "atas nama Budi", "panggil aku Budi"
             if (!$state['nama']) {
-                if (preg_match('/(?:nama\s*(?:saya|aku|ku|gue)?\s*(?:adalah|:)?\s*|atas\s*nama\s*|an\.\s*|panggil\s*(?:aku|saya|gue|guwe)?\s*)([A-Za-z][A-Za-z\s\.\']{1,60})/i', $text, $nMatch)) {
-                    $state['nama'] = ucwords(trim($nMatch[1]));
+                $prefixed = '/(?:nama\s*(?:saya|aku|ku|gue|gw)?\s*(?:adalah|:)?\s*|atas\s*nama\s*|an\.\s*|panggil\s*(?:aku|saya|gue|guwe|gw)?\s*)('.$namePattern.')/iu';
+                if (preg_match($prefixed, $text, $nMatch)) {
+                    $state['nama'] = $this->cleanGuestName($nMatch[1]);
+                }
+            }
+        }
+
+        // Nama yang ditulis langsung tanpa kalimat: "Budi Santoso".
+        // Hanya dijalankan setelah semua tanggal/jam/tamu/area sudah terkumpul, supaya
+        // kata seperti "besok" atau "VIP" tidak salah dibaca sebagai nama.
+        $coreDataReady = $state['tanggal_iso'] && $state['jam'] && $state['jumlah_tamu'] && $state['area'];
+
+        if (!$state['nama'] && $coreDataReady) {
+            foreach ($userTexts as $text) {
+                $candidate = $this->cleanGuestName($text);
+                if ($candidate !== null) {
+                    $state['nama'] = $candidate;
+                    break;
                 }
             }
         }
 
         return $state;
+    }
+
+    /**
+     * Kata yang sering muncul di chat tapi BUKAN nama tamu (perintah, konfirmasi,
+     * sapaan, atau data reservasi). Kalau sebuah kata masuk daftar ini, kalimat itu
+     * tidak boleh dianggap sebagai nama.
+     */
+    protected const NON_NAME_WORDS = [
+        'saya', 'aku', 'gue', 'gw', 'kami', 'kita', 'anda', 'kamu', 'mau', 'ingin', 'bisa',
+        'boleh', 'tolong', 'mohon', 'silakan', 'reservasi', 'booking', 'pesan', 'meja', 'jam',
+        'pukul', 'tanggal', 'orang', 'pax', 'tamu', 'area', 'vip', 'lounge', 'terrace',
+        'main', 'hall', 'indoor', 'outdoor', 'dining', 'makan', 'dinner', 'lunch', 'brunch',
+        'romantis', 'romantic', 'member', 'halo', 'hai', 'hi', 'hello', 'hey', 'ok', 'oke',
+        'iya', 'ya', 'yaa', 'benar', 'sudah', 'belum', 'setuju', 'konfirmasi', 'deal', 'batal',
+        'batalkan', 'ubah', 'ganti', 'edit', 'detail', 'terima', 'kasih', 'thanks', 'thank',
+        'coba', 'lagi', 'tidak', 'nggak', 'ngga', 'ga', 'tak', 'nama', 'punya', 'untuk',
+        'pada', 'dari', 'dengan', 'di', 'ke', 'dear', 'tuan', 'saudara', 'nya',
+        // Nilai tanggal/jam/occasion yang biasa diketik tamu
+        'besok', 'lusa', 'ini', 'senin', 'selasa', 'rabu', 'kamis', 'jumat', 'sabtu',
+        'minggu', 'januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus',
+        'september', 'oktober', 'november', 'desember', 'pagi', 'siang', 'sore', 'malam',
+        'anniversary', 'ulang', 'tahun', 'ramadan', 'lebaran', 'christmas', 'dinner',
+    ];
+
+    /**
+     * Ubah teks menjadi nama tamu yang valid, atau null kalau teksnya bukan nama.
+     * Dipakai untuk menangkap "Budi Santoso" tanpa membuat reservation memakai
+     * kata perintah seperti "sudah" atau "ya" sebagai nama.
+     */
+    protected function cleanGuestName(string $text): ?string
+    {
+        $name = trim($text);
+        $name = preg_replace('/^[\s\-:,.!]+|[\s\-:,.!]+$/u', '', (string) $name);
+        $name = (string) $name;
+
+        // Buang sapaan di depan: "Kak Budi" → "Budi"
+        $name = preg_replace('/^(kak|mbak|mas|bro|bang|gan|bu|pak|tuan|saudara)\s+/iu', '', $name);
+        $name = trim((string) $name);
+
+        if (mb_strlen($name) < 2 || mb_strlen($name) > 40) {
+            return null;
+        }
+
+        // Hanya boleh berisi huruf, spasi, titik, apostrof, dan tanda hubung
+        // (email, nomor HP, tanggal, dan angka otomatis tersaring di sini)
+        if (!preg_match("/^[A-Za-z][A-Za-z .'\-]*$/u", $name)) {
+            return null;
+        }
+
+        $words = preg_split('/\s+/u', $name) ?: [];
+        if (count($words) > 4) {
+            return null;
+        }
+
+        foreach ($words as $word) {
+            $normalized = strtolower(trim($word, ".'-"));
+            if ($normalized === '') {
+                continue;
+            }
+            if (in_array($normalized, self::NON_NAME_WORDS, true)) {
+                return null;
+            }
+        }
+
+        return mb_convert_case($name, MB_CASE_TITLE, 'UTF-8');
     }
 
     public function chat(string $message, ?string $conversationId = null): array
@@ -618,12 +712,11 @@ KNOWLEDGE;
 
         // Tangkap data diri (nama/no HP/email) dari pesan terbaru sesuai langkah aktif
         if ($targetStep === 'ASK_NAME' && empty($state['nama'])) {
-            $cleaned = trim(preg_replace('/^(iya|ya|oke|ok|baiklah|siap|baik|nama\s*(saya|aku|ku|gue|gw)?|saya|namaku|aku|panggil|panggil\s*(aku|saya))\s*[:,\-]?\s*/i', '', $message));
-            $cleaned = preg_replace('/[^A-Za-z \.\']+/', ' ', $cleaned);
-            $cleaned = trim(preg_replace('/\s+/', ' ', $cleaned));
-            if ($cleaned !== '' && strlen($cleaned) >= 2) {
-                $state['nama'] = ucwords(strtolower($cleaned));
-            }
+            $state['nama'] = $this->cleanGuestName($message);
+        } elseif ($targetStep === 'ASK_PHONE' && empty($state['nama'])) {
+            $state['nama'] = $this->cleanGuestName($message);
+        } elseif ($targetStep === 'ASK_EMAIL' && empty($state['nama'])) {
+            $state['nama'] = $this->cleanGuestName($message);
         } elseif ($targetStep === 'ASK_PHONE' && empty($state['no_hp'])) {
             if (preg_match('/(?:\+?62|0)\s?8\d[\d\s\-]{7,13}/', $message, $pMatch)) {
                 $state['no_hp'] = preg_replace('/[\s\-]/', '', $pMatch[0]);

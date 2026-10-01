@@ -36,7 +36,7 @@ export function useWebPush() {
     try {
       await unsubscribeUserFromPush();
       setIsSubscribed(false);
-    } catch (err) {
+    } catch {
       setError('Gagal menonaktifkan notifikasi.');
     } finally {
       setLoading(false);

@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 import Toggle from '../../components/ui/Toggle';
 import { updateAdminProfile } from '../../api/adminApi';
 import { useWebPush } from '../../hooks/useWebPush';
+
+function readInitialDarkMode() {
+  if (typeof window === 'undefined') return false;
+  if (localStorage.getItem('theme') === 'dark') return true;
+  return document.body.classList.contains('dark-mode');
+}
 
 export default function SettingsPage() {
   const { admin, login } = useAuth();
@@ -11,43 +17,36 @@ export default function SettingsPage() {
   // Web Push Hook
   const { isSubscribed, loading: pushLoading, error: pushError, subscribe, unsubscribe } = useWebPush();
   
-  // Theme State
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Theme State — dibaca sekali saat mount, bukan lewat effect
+  const [isDarkMode, setIsDarkMode] = useState(readInitialDarkMode);
   
   // Profile Form State
-  const [username, setUsername] = useState(admin?.name || '');
+  const [username, setUsername] = useState(() => admin?.name || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  
-  useEffect(() => {
-    if (admin?.name) {
-      setUsername(admin.name);
-    }
-  }, [admin]);
 
+  // Sinkronkan form dengan nama admin terbaru (mis. setelah login ulang).
+  // Penyesuaian dilakukan saat render, bukan di dalam effect.
+  const [syncedAdminName, setSyncedAdminName] = useState(() => admin?.name || '');
+  if (admin?.name && admin.name !== syncedAdminName) {
+    setSyncedAdminName(admin.name);
+    setUsername(admin.name);
+  }
+
+  // Terapkan class dark-mode ke <body> sesuai state (termasuk memulihkan
+  // tema tersimpan saat halaman baru dibuka).
   useEffect(() => {
-    // Check initial theme from localStorage or body class
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || document.body.classList.contains('dark-mode')) {
-      setIsDarkMode(true);
-      document.body.classList.add('dark-mode');
-    }
-  }, []);
+    document.body.classList.toggle('dark-mode', isDarkMode);
+  }, [isDarkMode]);
 
   const handleThemeToggle = () => {
     const newVal = !isDarkMode;
     setIsDarkMode(newVal);
-    if (newVal) {
-      document.body.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.body.classList.remove('dark-mode');
-      localStorage.setItem('theme', 'light');
-    }
+    localStorage.setItem('theme', newVal ? 'dark' : 'light');
   };
 
   const handleProfileSave = async (e) => {

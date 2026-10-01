@@ -11,6 +11,8 @@ class Reservation extends Model
 
     protected $fillable = [
         'booking_number',
+        'source',
+        'notification_status',
         'guest_name',
         'phone',
         'email',
@@ -29,6 +31,7 @@ class Reservation extends Model
         'date' => 'date:Y-m-d',
         'is_arrived' => 'boolean',
         'party_size' => 'integer',
+        'notification_status' => 'array',
     ];
 
     public function table()

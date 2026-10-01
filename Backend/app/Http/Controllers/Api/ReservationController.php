@@ -3,17 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SendWebPushNotification;
 use App\Models\Reservation;
-use App\Services\TelegramService;
-use App\Services\WhatsAppService;
+use App\Services\ReservationNotifierService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReservationController extends Controller
 {
+    public function __construct(protected ReservationNotifierService $notifier) {}
+
     /**
      * Public submit reservation with quota validation.
      */
@@ -63,56 +62,12 @@ class ReservationController extends Controller
             'seating_notes' => $validated['seating_notes'] ?? null,
             'is_arrived' => false,
             'status' => 'pending',
+            'source' => 'web',
         ]);
 
-        // Kirim push notification ke admin via Web Push (async queue)
-        // Jika gagal, reservasi tetap dianggap berhasil
-        try {
-            SendWebPushNotification::dispatch($reservation);
-        } catch (\Exception $e) {
-            Log::error(
-                'Gagal dispatch Web Push job untuk reservasi #'.$reservation->booking_number.': '.$e->getMessage()
-            );
-        }
-
-        // Kirim notifikasi WhatsApp ke admin via gatewa (Fonnte/Wablas)
-        // Jika gagal, reservasi tetap dianggap berhasil
-        try {
-            $adminPhone = config('whatsapp.admin_phone');
-            if ($adminPhone) {
-                $wa = app(WhatsAppService::class);
-                $wa->send($adminPhone, "🔔 RESERVASI BARU — Ebony Cafe\n".
-                    "Kode Booking: #{$reservation->booking_number}\n".
-                    "Nama: {$reservation->guest_name}\n".
-                    "No HP: {$reservation->phone}\n".
-                    "Tanggal: {$reservation->date}\n".
-                    "Jam: {$reservation->time}\n".
-                    "Jumlah: {$reservation->party_size} orang");
-            }
-        } catch (\Exception $e) {
-            Log::error(
-                'Gagal kirim WhatsApp notif admin untuk reservasi #'.$reservation->booking_number.': '.$e->getMessage()
-            );
-        }
-
-        // Kirim notifikasi Telegram ke group chat admin (Bot API)
-        // Jika gagal, reservasi tetap dianggap berhasil
-        try {
-            $tg = app(TelegramService::class);
-            $tg->send(
-                "🔔 <b>RESERVASI BARU</b> — Ebony Cafe\n".
-                "Kode Booking: <b>#{$reservation->booking_number}</b>\n".
-                "Nama: {$reservation->guest_name}\n".
-                "No HP: {$reservation->phone}\n".
-                "Tanggal: {$reservation->date}\n".
-                "Jam: {$reservation->time}\n".
-                "Jumlah: {$reservation->party_size} orang"
-            );
-        } catch (\Exception $e) {
-            Log::error(
-                'Gagal kirim Telegram notif admin untuk reservasi #'.$reservation->booking_number.': '.$e->getMessage()
-            );
-        }
+        // Kabari admin (Web Push + WhatsApp + Telegram).
+        // Best-effort: kalau gagal, reservasi tetap dianggap berhasil.
+        $this->notifier->notifyNewReservation($reservation);
 
         return response()->json([
             'message' => 'Reservasi berhasil dikirim.',
@@ -162,6 +117,7 @@ class ReservationController extends Controller
                 'formatted_date' => Carbon::parse($r->date)->format('d M Y'),
                 'party_size' => $r->party_size,
                 'occasion' => $r->occasion,
+                'source' => $r->source,
                 'is_arrived' => $r->is_arrived,
                 'status' => $r->status,
             ];
@@ -208,6 +164,7 @@ class ReservationController extends Controller
                 'guest_name' => $r->guest_name,
                 'party_size' => $r->party_size,
                 'status' => $r->status,
+                'source' => $r->source,
                 'date' => is_string($r->date) ? $r->date : Carbon::parse($r->date)->format('Y-m-d'),
                 'time' => is_string($r->time) ? substr($r->time, 0, 5) : Carbon::parse($r->time)->format('H:i'),
                 'formatted_date' => Carbon::parse($r->date)->format('d M Y'),
@@ -243,10 +200,13 @@ class ReservationController extends Controller
             'time' => $timeFormatted,
             'party_size' => $r->party_size,
             'occasion' => $r->occasion,
+            'source' => $r->source,
             'is_arrived' => (bool) $r->is_arrived,
             'status' => $r->status,
             'dietary_notes' => $r->dietary_notes,
             'seating_notes' => $r->seating_notes,
+            'notification_status' => $r->notification_status,
+            'failed_notification_channels' => $this->notifier->failedChannels($r),
             'guest' => [
                 'name' => $r->guest_name,
                 'phone' => $r->phone,
@@ -254,6 +214,39 @@ class ReservationController extends Controller
                 'is_vip' => $r->party_size >= 6,
                 'avatar' => null,
             ],
+        ]);
+    }
+
+    /**
+     * Kirim ulang notifikasi admin untuk satu reservasi.
+     *
+     * Dipakai ketika sebuah kanal gagal (mis. jaringan server sedang putus),
+     * sehingga admin tidak perlu membuat reservasi baru.
+     */
+    public function resendNotification(Request $request, $id)
+    {
+        $reservation = Reservation::findOrFail($id);
+
+        $validated = $request->validate([
+            'channels' => 'nullable|array',
+            'channels.*' => 'string|in:web_push,whatsapp,telegram',
+        ]);
+
+        $channels = $validated['channels'] ?? null;
+
+        $results = $this->notifier->resend($reservation, $channels);
+
+        $sent = array_keys(array_filter($results));
+        $failed = array_keys(array_filter($results, fn ($ok) => ! $ok));
+
+        return response()->json([
+            'message' => $failed === []
+                ? 'Notifikasi berhasil dikirim ulang.'
+                : 'Sebagian notifikasi masih gagal dikirim.',
+            'results' => $results,
+            'sent' => $sent,
+            'failed' => $failed,
+            'notification_status' => $reservation->fresh()->notification_status,
         ]);
     }
 

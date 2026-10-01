@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import AOS from 'aos';
 
 export default function PromoSection() {
   const [promoData, setPromoData] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:8000/api/menus')
@@ -28,29 +27,25 @@ export default function PromoSection() {
       })
       .catch(error => {
         console.error("Gagal memuat data menu promo:", error);
-      })
-      .finally(() => {
-        setLoading(false);
       });
   }, []);
 
-  const changeSlide = (newIndex) => {
-    if (promoData.length <= 1) return;
+  const changeSlide = useCallback((newIndex) => {
     setIsAnimating(true);
     setTimeout(() => {
       setCurrentIndex(newIndex);
       setIsAnimating(false);
     }, 150);
-  };
+  }, []);
 
   useEffect(() => {
-    if (promoData.length <= 1) return;
+    if (promoData.length <= 1) return undefined;
     const timer = setInterval(() => {
       const nextIndex = currentIndex === promoData.length - 1 ? 0 : currentIndex + 1;
       changeSlide(nextIndex);
     }, 3000); 
     return () => clearInterval(timer); 
-  }, [currentIndex, promoData.length]);
+  }, [currentIndex, promoData.length, changeSlide]);
 
   const displayData = promoData.length > 0 ? promoData : [
     {

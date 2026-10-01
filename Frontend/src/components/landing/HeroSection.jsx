@@ -1,8 +1,5 @@
 import { useNavigate } from 'react-router-dom';
 
-// Placeholder image from Unsplash if no local asset
-const HERO_IMG = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80';
-
 export default function HeroSection() {
   const navigate = useNavigate();
 

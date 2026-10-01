@@ -3,7 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AdminLayout from '../../components/admin/AdminLayout';
 import Spinner from '../../components/ui/Spinner';
-import { getReservationDetail, updateReservationStatus } from '../../api/adminApi';
+import { getReservationDetail, updateReservationStatus, resendReservationNotification } from '../../api/adminApi';
+
+const NOTIF_CHANNELS = [
+  { key: 'web_push', label: 'Web Push', icon: '🔔' },
+  { key: 'whatsapp', label: 'WhatsApp Admin', icon: '💬' },
+  { key: 'telegram', label: 'Telegram', icon: '✈️' },
+];
+
+const CHANNEL_STATUS_META = {
+  sent: { label: 'Terkirim', color: '#0f7b3f', bg: '#e6f6ec' },
+  failed: { label: 'Gagal', color: '#b3261e', bg: '#fdecea' },
+  skipped: { label: 'Belum aktif', color: '#8a6d1f', bg: '#fdf4e0' },
+};
 
 export default function ReservationDetailPage() {
   const { id } = useParams();
@@ -17,27 +29,40 @@ export default function ReservationDetailPage() {
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  const loadData = async () => {
+  const [resending, setResending] = useState(false);
+  const [notifMessage, setNotifMessage] = useState(null);
+
+  // Saat id berubah, kembali ke status "memuat" tanpa setState di dalam effect.
+  const [loadedId, setLoadedId] = useState(id);
+  if (id !== loadedId) {
+    setLoadedId(id);
     setLoading(true);
-    try {
-      const resDetail = await getReservationDetail(id);
-      const data = resDetail?.data || resDetail || null;
-      setReservation(data);
-      if (data) {
-        setSelectedStatus(data.status || 'pending');
-      }
-    } catch (err) {
-      console.error("Error loading detail:", err);
-      alert('Gagal memuat detail reservasi.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }
 
   useEffect(() => {
-    if (id) {
-      loadData();
-    }
+    if (!id) return undefined;
+
+    let cancelled = false;
+
+    getReservationDetail(id)
+      .then((resDetail) => {
+        if (cancelled) return;
+        const data = resDetail?.data || resDetail || null;
+        setReservation(data);
+        setSelectedStatus(data?.status || 'pending');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("Error loading detail:", err);
+        alert('Gagal memuat detail reservasi.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   const handleAnalyzeRequest = async () => {
@@ -76,6 +101,39 @@ export default function ReservationDetailPage() {
     }
   };
 
+  const handleResendNotification = async (channels) => {
+    setResending(true);
+    setNotifMessage(null);
+    try {
+      const res = await resendReservationNotification(id, channels);
+      setReservation((prev) =>
+        prev
+          ? {
+              ...prev,
+              notification_status: res.notification_status,
+              failed_notification_channels: res.sent
+                ? NOTIF_CHANNELS.map((c) => c.key).filter((k) => !res.sent.includes(k))
+                : NOTIF_CHANNELS.map((c) => c.key),
+            }
+          : prev
+      );
+      setNotifMessage({
+        ok: res.failed.length === 0,
+        text:
+          res.failed.length === 0
+            ? `Notifikasi berhasil dikirim ulang via ${res.sent.join(', ')}.`
+            : `Berhasil: ${res.sent.join(', ') || 'tidak ada'}. Masih gagal: ${res.failed.join(', ')}.`,
+      });
+    } catch (err) {
+      setNotifMessage({
+        ok: false,
+        text: err.response?.data?.message || 'Gagal mengirim ulang notifikasi.',
+      });
+    } finally {
+      setResending(false);
+    }
+  };
+
   const formatWaNumber = (phone) => {
     if (!phone) return '';
     let cleaned = phone.replace(/\D/g, '');
@@ -91,7 +149,7 @@ export default function ReservationDetailPage() {
     const currentStatus = (selectedStatus || reservation.status || 'PENDING').toUpperCase();
 
     // Teks penutup dinamis menyesuaikan status
-    let closingMessage = '';
+    let closingMessage;
     switch (currentStatus) {
       case 'CONFIRMED':
       case 'APPROVED':
@@ -250,6 +308,102 @@ export default function ReservationDetailPage() {
                 <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1a1a' }}>👥 {reservation.party_size || 0} Guests</div>
               </div>
             </div>
+          </div>
+
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea' }}>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', borderBottom: '1px solid #eee', paddingBottom: '10px' }}>
+              Notifikasi Admin
+            </h3>
+
+            <p style={{ fontSize: '0.8rem', color: '#888', margin: '0 0 14px' }}>
+              Kalau ada kanal yang gagal terkirim (mis. jaringan server sedang putus),
+              bisa dikirim ulang tanpa membuat reservasi baru.
+            </p>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+              {NOTIF_CHANNELS.map(({ key, label, icon }) => {
+                const status = reservation.notification_status?.[key]?.status;
+                const meta = CHANNEL_STATUS_META[status] || CHANNEL_STATUS_META.skipped;
+                const isPending = !status;
+
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #eee',
+                      background: isPending ? '#fafafa' : meta.bg,
+                      fontSize: '0.82rem',
+                    }}
+                  >
+                    <span>{icon}</span>
+                    <span style={{ fontWeight: 600 }}>{label}</span>
+                    <span style={{ color: isPending ? '#999' : meta.color, fontWeight: 600 }}>
+                      {isPending ? 'Belum ada data' : meta.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {reservation.notification_status && (
+              <div style={{ fontSize: '0.75rem', color: '#999', marginBottom: '14px' }}>
+                {NOTIF_CHANNELS.map(({ key, label }) => {
+                  const entry = reservation.notification_status?.[key];
+                  if (!entry) return null;
+                  const errMsg = entry.error ? ` — ${entry.error}` : '';
+                  return (
+                    <div key={key}>
+                      {label}: {entry.status} ({entry.at}){errMsg}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={resending}
+                onClick={() => handleResendNotification(null)}
+              >
+                {resending ? 'MENGIRIM...' : '🔁 Kirim Ulang Semua'}
+              </button>
+
+              {NOTIF_CHANNELS.filter(
+                ({ key }) => reservation.notification_status?.[key]?.status !== 'sent'
+              ).map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="btn"
+                  disabled={resending}
+                  onClick={() => handleResendNotification([key])}
+                >
+                  {icon} {label}
+                </button>
+              ))}
+            </div>
+
+            {notifMessage && (
+              <div
+                style={{
+                  marginTop: '14px',
+                  padding: '12px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.85rem',
+                  color: notifMessage.ok ? '#0f7b3f' : '#b3261e',
+                  background: notifMessage.ok ? '#e6f6ec' : '#fdecea',
+                }}
+              >
+                {notifMessage.text}
+              </div>
+            )}
           </div>
 
           <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea' }}>

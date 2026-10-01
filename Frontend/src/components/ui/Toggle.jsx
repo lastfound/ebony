@@ -10,6 +10,7 @@ export default function Toggle({ checked, onChange, label }) {
           checked={checked}
           onChange={onChange}
           className="toggle__input"
+          aria-label={label}
         />
         <span className="toggle__slider" />
       </label>

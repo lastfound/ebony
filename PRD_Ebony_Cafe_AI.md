@@ -830,6 +830,7 @@ guest_count
 table_id
 special_request
 status
+source            -- web | ai  (asal reservasi, untuk notifikasi & pelaporan)
 ```
 
 ## AI Conversation
@@ -1537,6 +1538,228 @@ Tagline fitur:
 ---
 
 # 41. IMPLEMENTATION TRACKING (UPDATE)
+
+## RINGKASAN PEKERJAAN — 30 Sep 2026 (1 hari, 4Sesi)
+
+| # | Permintaan | Status | Ringkasan |
+|---|---|---|---|
+| 1 | Lonceng notifikasi admin bisa diklik, tanda silang saat kosong, badge + suara saat ada | Selesai | `NotificationBell` + `NotificationContext`, ada di semua halaman admin |
+| 2 | Reservasi via AI masuk admin + database + notifikasi | Selesai | `ReservationNotifierService` dipakai bersama web & AI, kolom `source` |
+| 3 | Foto "The Essence of Ebony" tidak muncul | Bukan bug | Bukan masalah kode - gangguan sinyal (CDN Unsplash tidak terjangkau). Section Gallery normal, jadi bukan masalah gambar |
+| 4 | Notifikasi Telegram tidak masuk | Bukan bug | Bukan masalah kode - `cURL error 6` DNS `api.telegram.org` gagal di-resolve karena jaringan. Token + chat ID sudah diverifikasi valid |
+| 5 | Perbaiki error lint lama | Selesai | 16 error + 3 warning menjadi 0 error, 0 warning |
+| 6 | Laporan perubahan DB & backend + catat di PRD | Selesai | Section "CHANGELOG PERUBAHAN DATABASE & BACKEND" di bawah |
+
+**Statistik:** 5 file baru, 20 file dimodifikasi, 3 migration, 2 endpoint baru, 1 kolom + 1 kolom JSON baru di DB.
+
+### Backup database (Laragon auto-backup)
+
+Tersedia di `C:\laragon\backup\mysql\`. Tiga di antaranya masih **sebelum semua perubahan** dan aman dipakai untuk restore total bila diperlukan:
+
+| File | Waktu (WIB) | Kondisi |
+|---|---|---|
+| `mysql-8.4-2026-09-23_233525.sql` | 2026-09-23 23:35 | Sebelum semua perubahan |
+| `mysql-8.4-2026-09-29_204026.sql` | 2026-09-29 20:40 | Sebelum semua perubahan |
+| `mysql-8.4-2026-09-30_101740.sql` | 2026-09-30 10:18 | **Sebelum semua perubahan (terbaru)** |
+| `mysql-8.4-2026-09-30_181731.sql` | 2026-09-30 18:17 | Sudah ada kolom `source` + `menus.is_promo` |
+| `mysql-8.4-2026-10-01_043353.sql` | 2026-10-01 04:34 | Sudah ada semua perubahan |
+
+Cara restore (kalau perlu, **hanya kalau benar-benar diperlukan**):
+```bash
+mysql -u root -p psaj < C:\laragon\backup\mysql\mysql-8.4-2026-09-30_101740.sql
+```
+Lalu jalankan `php artisan migrate` untuk menerapkan kembali 3 migration yang ada di section A.
+
+## CHANGELOG PERUBAHAN DATABASE & BACKEND — 30 Sep 2026
+
+> Catatan perubahan skema DB, data, dan kode backend. Dibuat karena semua perubahan
+> di bawah **sudah dijalankan** ke database lokal `psaj`, bukan sekadar usulan.
+
+### A. PERUBAHAN SKEMA DATABASE (sudah di-migrate)
+
+**A1. Tabel `menus` — 4 kolom baru** ⚠️ *TIDAK diminta, tertunda dari sebelumnya, ikut terpasang*
+
+Migration: `2026_09_28_055229_add_promo_fields_to_menus_table.php` (batch 4)
+
+| Kolom | Tipe | Default |
+|---|---|---|
+| `is_promo` | boolean | `false` |
+| `promo_badge` | varchar | null |
+| `promo_tagline` | varchar | null |
+| `promo_subtext` | varchar | null |
+
+Penyebab: file migration ini sudah ada dan berstatus *pending* sebelum pekerjaan notifikasi dimulai. Karena prosesnya memakai `php artisan migrate --force` (menjalankan **semua** migration tertunda), migration tersebut ikut tereksekusi.
+
+Dampak: rendah — semua kolom nullable/default, tidak menghapus atau mengubah data yang ada. Fungsinya memang dipakai section Promo di landing page.
+Catatan versi ini: untuk ke depan gunakan `php artisan migrate --path=database/migrations/<file>.php --force` agar hanya migration yang sengaja dikerjakan yang ikut jalan.
+
+**A2. Tabel `reservations` — 2 kolom baru** (permintaan: notifikasi reservasi AI masuk admin)
+
+| Kolom | Tipe | Null | Migration | Batch |
+|---|---|---|---|---|
+| `source` | varchar | ya | `2026_09_30_090000_add_source_to_reservations_table.php` | 4 |
+| `notification_status` | json | ya | `2026_09_30_140000_add_notification_status_to_reservations_table.php` | 5 |
+
+Isi `notification_status` (JSON):
+
+```json
+{
+  "web_push": { "status": "sent|failed|skipped", "at": "ISO8601" },
+  "whatsapp": { "status": "sent|failed|skipped", "at": "ISO8601", "error": "..." },
+  "telegram": { "status": "sent|failed|skipped", "at": "ISO8601", "error": "..." }
+}
+```
+
+- `sent` = berhasil terkirim.
+- `failed` = dicoba tapi gagal; field `error` berisi alasannya.
+- `skipped` = kanal belum dikonfigurasi (mis. `ADMIN_PHONE_NUMBER` masih kosong). Sengaja dibedakan dari `failed` supaya tidak disalahartikan sebagai masalah jaringan.
+
+Kedua migration punya method `down()` sehingga bisa di-rollback.
+
+### B. PERUBAHAN DATA
+
+| Tindakan | Dampak | Status |
+|---|---|---|
+| Reservasi uji dibuat untuk verifikasi (nama AI, notifier, escape HTML) | Data sementara | **Sudah dihapus semua** — 0 sisa |
+| 5 percakapan uji leftovers di `ai_conversations` (sudah vorher dihapus sebagian) | Data sementara | **Sudah dihapus** (26 → 21 percakapan) |
+| 17 job Web Push lama di tabel `jobs` | Job notifikasi tertunda | **Sudah dihapus** saat cleanup test |
+| Pesan AI yatim (induk percakapan hilang) | — | 0, aman |
+
+**Tidak ada baris data lama yang di-update atau di-DELETE.** Tabel `reservations` berisi 27 baris, seluruhnya data asli.
+
+### C. PERUBAHAN KODE BACKEND
+
+**C1. File baru (3)**
+
+| File | Isi |
+|---|---|
+| `app/Services/ReservationNotifierService.php` | Notifier reusable: Web Push + WhatsApp admin + Telegram. Method `notifyNewReservation()`, `resend($reservation, $channels)`, `failedChannels($reservation)`, `recordStatus()` |
+| `database/migrations/2026_09_30_090000_add_source_to_reservations_table.php` | Tambah kolom `source` |
+| `database/migrations/2026_09_30_140000_add_notification_status_to_reservations_table.php` | Tambah kolom `notification_status` |
+
+**C2. File dimodifikasi (4)**
+
+| File | Perubahan |
+|---|---|
+| `app/Services/AIService.php` | +113 baris. (1) simpan `source => 'ai'`; (2) panggil `ReservationNotifierService` setelah reservasi tersimpan, dibungkus try/catch best-effort; (3) kembalikan `reservation_id` di respons; (4) fix bug nama tamu: `cleanGuestName()` + konstanta `NON_NAME_WORDS`, ekstraksi nama membaca seluruh riwayat pesan, fallback nama tulisan langsung baru jalan setelah tanggal+jam+jumlah+area lengkap |
+| `app/Http/Controllers/Api/ReservationController.php` | Constructor injection `ReservationNotifierService`; `store()` menyimpan `source => 'web'` lalu memanggil notifier (logika WA/TG langsung di controller dihapus, dipindah ke service); `show()` expose `notification_status` + `failed_notification_channels`; method baru `resendNotification()` |
+| `app/Models/Reservation.php` | `source` + `notification_status` masuk `$fillable`; `notification_status` masuk `$casts` sebagai `array` |
+| `routes/api.php` | 1 route baru: `POST /api/admin/reservations/{id}/resend-notification` |
+
+**C3. Yang TIDAK berubah di backend**
+- Tidak ada package/dependency baru (`composer.json` tidak disentuh).
+- Tidak ada tabel yang dihapus, tidak ada kolom yang dihapus.
+- Tidak ada endpoint lama yang berubah perilaku atau dihapus.
+- Tidak ada perubahan pada `TelegramService`, `WhatsAppService`, dan `SendWebPushNotification` (hanya dipanggil dari service baru).
+
+### D. ROLLBACK
+
+```bash
+# Hapus 2 kolom yang sengaja dibuat
+php artisan migrate:rollback --step=1   # notification_status
+php artisan migrate:rollback --step=1   # source
+
+# Rollback migration promo (hanya jika benar-benar diperlukan)
+php artisan migrate:rollback --batch=4
+```
+
+Setelah rollback kolom, pastikan `Reservation` model tidak lagi melakukan cast `notification_status` dan `ReservationNotifierService` tidak memanggil `recordStatus()`.
+
+## UPDATE JADI — 30 Sep 2026 (Bell Notifikasi Admin + Reservasi AI ke Admin/DB)
+
+### ✅ YANG SUDAH DIKERJAKAN
+
+1. **Lonceng Notifikasi Adminaktif (semua halaman admin)**
+   - `NotificationContext` (`src/context/NotificationContext.jsx`) sebagai sumber tunggal state notifikasi.
+   - `AdminLayout` melakukan polling `getNewReservations()` tiap 5 detik. Polling pertama diperlakukan sebagai **baseline** (notifikasi lama masuk daftar sebagai *unread* tanpa bunyi), sehingga admin tidak dibanjiri suara saat baru membuka dashboard.
+   - Reservasi baru setelah baseline memicu: toast, `playAlertSound()`, blink judul tab, dan flash layar.
+   - Riwayat notifikasi disimpan di `localStorage` key `admin_notifications` (maks. 30 item) agar tidak hilang saat refresh.
+   - `NotificationBell` (`src/components/admin/NotificationBell.jsx`):
+     - Klik lonceng → buka/ tutup panel notifikasi.
+     - **Tanda silang (✕)** muncul saat tidak ada notifikasi belum dibaca.
+     - **Badge angka beranimasi** saat ada notifikasi belum dibaca.
+     - Klik notifikasi → tandai terbaca + navigasi ke detail reservasi.
+     - Aksi "Tandai semua dibaca" dan "Hapus riwayat".
+     - Tutup otomatis saat klik di luar panel atau tekan `Esc`.
+     - Label sumber: **AI** atau **Website**.
+   - Bell dipasang di `.admin-toolbar` sehingga tersedia di seluruh halaman admin (bukan hanya Dashboard); tombol bell yang mati di `DashboardPage.jsx` dihapus.
+   - `Sidebar` memakai `unreadCount` dari context untuk badge menu Reservasi.
+   - Styling (bell, panel, empty state, badge sumber, dark mode) ditambahkan di `src/styles/index.css`.
+
+2. **Reservasi AI Sekarang Masuk Admin & Database**
+   - Ditemukan akar masalah: `AIService::createReservationFromState()` sebenarnya **sudah** menyimpan ke DB, tapi tidak pernah mengabari admin. Akibatnya user merasa reservasi AI "hilang".
+   - Dibuat service reusable `ReservationNotifierService` (Web Push + WhatsApp admin + Telegram) yang dipakai bersama oleh reservasi website maupun AI.
+   - `ReservationController@store` sekarang memakai service tersebut (logika notifikasi yang sebelumnya tersebar di controller sudah dihapus).
+   - `AIService::createReservationFromState()` sekarang:
+     - menyimpan `source => 'ai'`,
+     - memanggil `ReservationNotifierService` (best-effort — notifikasi gagal tidak membatalkan reservasi),
+     - mengembalikan `reservation_id` untuk keperluan tracing.
+   - Ditambah kolom `source` (`web` | `ai`) via migration `2026_09_30_090000_add_source_to_reservations_table.php`, ditambahkan ke `$fillable` model `Reservation`, dan diekspos di respons API (`index`/`new`/`show`).
+   - Channel `new` (`GET /api/admin/reservations/new?since=...`) tidak membatasi sumber, sehingga reservasi AI langsung terpantau admin dengan polling yang sama.
+
+3. **Perbaikan Bug Nama Tamu pada Flow Reservasi AI**
+   - Gejala: input `Budi Santoso` tersimpan sebagai `guest_name = "Sudah Benar"` (kata dari pesan konfirmasi ikut tertangkap sebagai nama).
+   - Penyebab: ekstraksi nama hanya berjalan pada langkah tertentu dan terlalu longgar, sehingga email, nomor HP, dan jawaban konfirmasi bisa dianggap nama.
+   - Perbaikan di `AIService`:
+     - `cleanGuestName()` membersihkan sapaan (`Kak Budi` → `Budi`), menolak email/nomor/angka/tanda baca, membatasi panjang 2–40 karakter dan maksimal 4 kata, serta memformat kapitalisasi.
+     - `NON_NAME_WORDS`: daftar kata perintah, konfirmasi, sapaan, dan nilai tanggal/jam/area (`sudah`, `benar`, `besok`, `vip`, `nama`, dst) yang tidak boleh menjadi nama.
+     - Ekstraksi nama sekarang membaca **seluruh riwayat pesan** (bukan hanya pesan terakhir), sehingga nama tetap terbawa lintas request/step.
+     - Fallback nama tulisan langsung baru dijalankan setelah tanggal + jam + jumlah tamu + area lengkap terkumpul, supaya "besok"/"VIP" tidak salah jadi nama.
+   - Diverifikasi dengan 3 skenario end-to-end lewat `AIService::chat()` (kanal WA/Telegram dimatikan): nama langsung, nama ber-sapaan/prefiks, dan nama yang disebut dalam kalimat — semua menghasilkan `guest_name` benar dengan `source = ai` dan `status = pending`.
+
+### ✅ VERIFIKASI
+
+- `php -l` bersih untuk `AIService`, `ReservationNotifierService`, `ReservationController`, model `Reservation`, dan migration baru.
+- `php artisan migrate --force` berhasil (sekaligus menuntaskan migration promo `2026_09_28_055229` yang masih tertunda).
+- Uji notifikasi: `notifyNewReservation()` mengembalikan `{"web_push":true,"whatsapp":false,"telegram":false}` dan job Web Push benar masuk tabel `jobs` (`QUEUE_CONNECTION=database`).
+- Uji integrasi AI 3 skenario: reservasi tersimpan dengan nama/HP/email/tanggal/jam/jumlah benar, `source=ai`, lalu data uji dihapus.
+- ESLint bersih untuk seluruh project (`npm run lint` → 0 error, 0 warning); `npm run build` sukses (124 modules transformed).
+- **Kebersihan lint (30 Sep 2026):** sambil proses notifikasi, semua error/warning ESLint lama ikut dibersihkan:
+  - `SettingsPage.jsx`: sinkronisasi `admin.name` ke form dipindah dari `useEffect` ke pola adjust-state-saat-render; tema gelap memakai lazy initializer `readInitialDarkMode()` + effect yang hanya menyinkronkan class `body.dark-mode` (hapus duplikasi class logic di `handleThemeToggle`).
+  - `ReservationDetailPage.jsx`: pemuatan detail dipindah ke promise di dalam effect (bukan fungsi async yang memanggil `setState` sinkron) + guard `cancelled` + reset `loading` saat `id` berubah.
+  - `ReservationsPage.jsx`: pemuatan daftar dipindah ke promise di dalam effect dengan guard `cancelled` (fungsi `fetchReservations` tetap dipertahankan untuk tombol refresh manual).
+  - `PromoSection.jsx`: hapus import `React` yang tidak terpakai, hapus state `loading` yang tidak pernah dibaca, `changeSlide` dibungkus `useCallback` agar dependency effect lengkap.
+  - `AuthContext.jsx`: context + hook `useAuth` dipindahkan ke `src/hooks/useAuth.js` supaya berkas provider hanya mengekspor komponen (aturan `react-refresh/only-export-components`); import `useAuth` di `SettingsPage` dan `LoginPage` disesuaikan.
+  - `web-push-sw.js`: `clients` → `self.clients` (global service worker), `catch (e)` → `catch` tanpa binding.
+  - `webPush.js`: escape regex `/\-/` → `/-/`, `catch (err)` → `catch`.
+  - `useWebPush.js`: `catch (err)` → `catch`.
+  - `HeroSection.jsx`: hapus konstanta `HERO_IMG` yang tidak terpakai.
+  - `Toggle.jsx`: prop `label` kini dipakai sebagai `aria-label` checkbox (perbaikan aksesibilitas) alih-alih dibuang.
+  - `ReservationPage.jsx` & `ReservationsPage.jsx`: `let label = ''` → `let label` (nilai awal langsung ditimpa di seluruh cabang).
+
+### ⏳ YANG BELUM / CATATAN
+
+1. **Worker queue harus dijalankan** untuk Web Push benar-benar terkirim: `php artisan queue:work` (ekor tabel `jobs` menumpuk selama ini karena worker tidak aktif).
+2. **Test End-to-End WA/Telegram** dengan config sungguhan masih belum dilakukan (menolak agar tidak mengirim pesan nyata saat testing). Semua pengujian memakai config kanal dinonaktifkan.
+3. **`npm run lint` kini bersih total** (0 error, 0 warning) — sebelumnya 16 error + 3 warning, sudah diperbaiki pada update ini.
+4. **Suara alert tetap tunduk kebijakan autoplay browser**:bunyi hanya audible setelah admin melakukan interaksi di halaman.
+5. **Menu Recommendation UI Card** masih berbasis teks/Markdown (belum ada carousel kartu).
+
+### 4. Diagnosis & Perbaikan Notifikasi Telegram (30 Sep 2026, sore)
+
+**Gejala:** reservasi via AI chatbot masuk ke admin + ada notifikasi, tapi pesan Telegram tidak pernah sampai di grup admin.
+
+**Diagnosis (bukan bug kode):** dari `storage/logs/laravel.log` ditemukan
+```
+TelegramService error: cURL error 6: Could not resolve host: api.telegram.org
+```
+`cURL error 6` = DNS gagal di-resolve, sehingga server PHP tidak bisa menjangkau API Telegram. Penyebabnya gangguan jaringan (terbukti bersamaan dengan foto Unsplash yang ikut hilang di section "The Essence of Ebony"). Karena notifikasi bersifat best-effort, reservasi tetap tersimpan dan tetap muncul di admin, sehingga dari sisi admin terlihat "sukses" padahal Telegram diam-diam gagal.
+
+**Verifikasi config (semua valid, tidak perlu ganti token):**
+- `TELEGRAM_BOT_TOKEN` → bot `@ebony_notif_bot` (id 8761689200), `getMe` HTTP 200 ok.
+- `TELEGRAM_CHAT_ID` → group **"caht admin"**, `getChat` HTTP 200 ok.
+- Uji kirim nyata end-to-end: `telegram => true`, pesan masuk ke grup.
+
+**Perbaikan yang dilakukan:**
+1. **Escape HTML pesan Telegram** (`ReservationNotifierService::sendTelegram`). Pesan dikirim dengan `parse_mode: HTML`, sedangkan `guest_name` dan `phone` disisipkan mentah. Nama seperti `Budi & Sari` atau `Rizky <Admin>` akan membuat Telegram membalas HTTP 400 `can't parse entities` dan pesan **tidak pernah terkirim** — bukan karena jaringan. Sekarang keduanya di-`htmlspecialchars()`. Terverifikasi: nama `Budi & Sari <Uji Escape>` berhasil terkirim.
+2. **Pencatatan status per kanal** — kolom baru `reservations.notification_status` (JSON) berisi `{ kanal: { status, at, error } }` dengan status `sent` / `failed` / `skipped` (`skipped` = kanal belum dikonfigurasi, mis. `ADMIN_PHONE_NUMBER` masih kosong). Semua kegagalan sekarang **tercatat beserta pesan errornya**, bukan hanya `Log::warning` yang tidak pernah dilihat.
+3. **Tombol "Kirim Ulang Notifikasi"** di halaman detail reservasi admin (`POST /api/admin/reservations/{id}/resend-notification`).
+   - `ReservationNotifierService::resend($reservation, $channels)` — kirim ulang ke semua kanal atau hanya kanal tertentu.
+   - `ReservationNotifierService::failedChannels($reservation)` — daftar kanal yang belum `sent`, dipakai untuk menampilkan tombol per kanal.
+   - Status kanal yang tidak ikut percobaan tidak ditimpa, jadi "kirim ulang ke Telegram saja" tidak menghapus catatan hasil Web Push.
+   - Endpoint mengembalikan `results` / `sent` / `failed` + status terbaru agar admin langsung tahu kanal mana yang masih gagal.
+
+**Kenapa ini penting secara operasional:** kasus "jaringan server putus sesaat" akan terus terjadi. Dulu satu-satunya cara tahu Telegram gagal adalah membuka `storage/logs/laravel.log`. Sekarang admin bisa melihat status tiap kanal di halaman detail reservasi dan mengirim ulang hanya ke kanal yang gagal, tanpa membuat reservasi ganda.
 
 ## UPDATE JADI — 23 Sep 2026 (Push: Web Push + Notifikasi WA Admin)
 
