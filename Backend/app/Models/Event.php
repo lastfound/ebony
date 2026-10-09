@@ -13,12 +13,16 @@ class Event extends Model
         'title',
         'description',
         'date',
+        'end_date',
+        'has_time',
         'image_url',
         'is_active',
     ];
 
     protected $casts = [
         'date' => 'datetime',
+        'end_date' => 'datetime',
+        'has_time' => 'boolean',
         'is_active' => 'boolean',
     ];
 

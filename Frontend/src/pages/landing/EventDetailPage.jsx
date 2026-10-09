@@ -53,10 +53,16 @@ export default function EventDetailPage() {
     year: 'numeric'
   });
   
-  const formattedTime = new Date(event.date).toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  const eventHasTime = event.has_time !== false;
+  const formattedTime = eventHasTime
+    ? new Date(event.date).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+    : 'Waktu bebas';
+  const formattedEnd = event.end_date
+    ? new Date(event.end_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <>
@@ -77,7 +83,7 @@ export default function EventDetailPage() {
           </h1>
           <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', color: 'var(--color-accent)', fontWeight: 600, fontSize: '14px', letterSpacing: '0.05em' }}>
             <span>📅 {formattedDate}</span>
-            <span>⏰ {formattedTime}</span>
+            <span>⏰ {formattedTime}{formattedEnd ? ` — s/d ${formattedEnd}` : ''}</span>
           </div>
         </div>
       </div>
@@ -110,6 +116,10 @@ export default function EventDetailPage() {
             <img 
               src={event.image_url} 
               alt={event.title} 
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80';
+              }}
               style={{ 
                 position: 'relative',
                 zIndex: 1,
@@ -133,7 +143,16 @@ export default function EventDetailPage() {
             <p style={{ color: 'var(--color-muted)', marginBottom: '24px' }}>
               Pastikan Anda mengamankan meja Anda karena kapasitas terbatas.
             </p>
-            <Link to="/reservation" state={{ eventTitle: event.title }} className="btn btn--primary btn--lg">
+            <Link
+              to="/reservation"
+              state={{
+                eventTitle: event.title,
+                eventDate: event.date,
+                eventEndDate: event.end_date || null,
+                eventHasTime: eventHasTime,
+              }}
+              className="btn btn--primary btn--lg"
+            >
               RESERVE A TABLE NOW
             </Link>
           </div>

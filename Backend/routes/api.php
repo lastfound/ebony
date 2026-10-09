@@ -19,6 +19,8 @@ Route::get('/menus',             [MenuController::class, 'publicIndex']);
 Route::get('/events',            [EventController::class, 'publicIndex']);
 Route::get('/events/{id}',       [EventController::class, 'show']);
 Route::post('/reservations',     [ReservationController::class, 'store']);
+Route::get('/tables',            [\App\Http\Controllers\Api\RestaurantTableController::class, 'index']);
+Route::get('/tables/available',  [\App\Http\Controllers\Api\RestaurantTableController::class, 'available']);
 
 // Tes koneksi
 Route::get('/tes-koneksi', function () {
@@ -62,6 +64,10 @@ Route::get('/reservations',                [ReservationController::class, 'index
     Route::put('/menus/{id}',         [MenuController::class, 'update']);
     Route::delete('/menus/{id}',      [MenuController::class, 'destroy']);
     Route::patch('/menus/{id}/toggle',[MenuController::class, 'toggleStatus']);
+
+    // Tables (denah meja untuk admin saat konfirmasi)
+    Route::get('/tables',           [\App\Http\Controllers\Api\RestaurantTableController::class, 'index']);
+    Route::get('/tables/available', [\App\Http\Controllers\Api\RestaurantTableController::class, 'available']);
 
     // Events
     Route::get('/events',          [EventController::class, 'index']);

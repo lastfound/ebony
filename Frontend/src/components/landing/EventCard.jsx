@@ -7,6 +7,12 @@ export default function EventCard({ event }) {
     month: 'short',
     year: 'numeric',
   });
+  const timePart = event.has_time === false
+    ? 'Waktu bebas'
+    : new Date(event.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const endPart = event.end_date
+    ? ` — s/d ${new Date(event.end_date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+    : '';
 
   return (
     <div className="event-card">
@@ -21,13 +27,15 @@ export default function EventCard({ event }) {
           className="event-card__img-main"
           loading="lazy"
           onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80';
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80';
           }}
         />
         <span className="event-card__tag">UPCOMING</span>
       </div>
       <div className="event-card__body">
         <span className="event-card__date">{formattedDate.toUpperCase()}</span>
+        <span className="event-card__time">🕐 {timePart}{endPart}</span>
         <h3 className="event-card__title">{event.title}</h3>
         <p className="event-card__desc">{event.description}</p>
         <Link to={`/events/${event.id}`} className="btn btn--link">VIEW DETAILS →</Link>

@@ -155,13 +155,28 @@ class ReservationNotifierService
     {
         $date = $this->formatDate($reservation->date);
         $time = $this->formatTime($reservation->time);
+        $tableLabel = $reservation->relationLoaded('table') && $reservation->table
+            ? $reservation->table->name
+            : ($reservation->table_id ? ('Meja #'.$reservation->table_id) : 'Belum pilih meja');
+
+        // Muat nama meja kalau belum di-load (mis. dari controller store).
+        if (! $reservation->relationLoaded('table') && $reservation->table_id) {
+            try {
+                $t = \App\Models\RestaurantTable::find($reservation->table_id);
+                if ($t) $tableLabel = $t->name.' ('.$t->area.', muat '.$t->capacity.')';
+            } catch (\Throwable $e) {
+            }
+        } elseif ($reservation->relationLoaded('table') && $reservation->table) {
+            $tableLabel = $reservation->table->name.' ('.$reservation->table->area.', muat '.$reservation->table->capacity.')';
+        }
 
         return "Kode Booking: #{$reservation->booking_number}\n"
             . "Nama: {$reservation->guest_name}\n"
             . "No HP: {$reservation->phone}\n"
             . "Tanggal: {$date}\n"
             . "Jam: {$time}\n"
-            . "Jumlah: {$reservation->party_size} orang";
+            . "Jumlah: {$reservation->party_size} orang\n"
+            . "Meja pilihan: {$tableLabel}";
     }
 
     protected function formatDate($date): string
@@ -184,6 +199,22 @@ class ReservationNotifierService
         } catch (\Throwable $e) {
             return substr((string) $time, 0, 5);
         }
+    }
+
+    protected function tableLabel(Reservation $reservation): string
+    {
+        if ($reservation->relationLoaded('table') && $reservation->table) {
+            return $reservation->table->name.' ('.$reservation->table->area.')';
+        }
+        if ($reservation->table_id) {
+            try {
+                $t = \App\Models\RestaurantTable::find($reservation->table_id);
+                if ($t) return $t->name.' ('.$t->area.')';
+            } catch (\Throwable $e) {
+            }
+            return 'Meja #'.$reservation->table_id;
+        }
+        return 'Belum pilih meja';
     }
 
     protected function sendWebPush(Reservation $reservation): bool
@@ -244,7 +275,8 @@ class ReservationNotifierService
             ."No HP: {$phone}\n"
             ."Tanggal: {$this->formatDate($reservation->date)}\n"
             ."Jam: {$this->formatTime($reservation->time)}\n"
-            ."Jumlah: {$reservation->party_size} orang";
+            ."Jumlah: {$reservation->party_size} orang\n"
+            ."Meja: ".htmlspecialchars(strip_tags($this->tableLabel($reservation)), ENT_QUOTES, 'UTF-8');
 
         try {
             $result = $this->telegram->send($message);

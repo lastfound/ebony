@@ -10,7 +10,14 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
       boxSizing: 'border-box'
     }}>
       <div className="menu-admin-card__image" style={{ position: 'relative' }}>
-        <img src={menu.image_url} alt={menu.name} />
+        <img
+          src={menu.image_url}
+          alt={menu.name}
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80';
+          }}
+        />
         
         {/* Lencana Kategori */}
         <span className="menu-admin-card__image-badge">

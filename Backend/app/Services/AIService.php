@@ -65,6 +65,128 @@ class AIService
     }
 
     /**
+     * Status meja REAL-TIME untuk satu slot (tanggal + jam yang sama).
+     * Menghitung SEMUA sumber reservasi (web, AI, maupun input manual admin
+     * dari WA/offline) karena semuanya tercatat di tabel reservations.
+     * Aturan slot SAMA dengan ReservationController: jam yang sama (2 digit).
+     *
+     * @return array{free: array, booked: array, total: int}
+     */
+    protected function getLiveTableStatus(string $date, string $time, int $partySize = 1): array
+    {
+        try {
+            $hourPrefix = substr($time, 0, 2);
+
+            $bookedIds = \App\Models\Reservation::where('date', $date)
+                ->where('time', 'like', $hourPrefix.'%')
+                ->where('status', '!=', 'cancelled')
+                ->whereNotNull('table_id')
+                ->pluck('table_id')
+                ->unique()
+                ->all();
+
+            $bookedSet = array_flip($bookedIds);
+            $free = [];
+            $booked = [];
+
+            foreach (RestaurantTable::where('is_active', true)->orderBy('area')->orderBy('capacity')->orderBy('name')->get() as $t) {
+                $entry = [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'area' => $t->area,
+                    'capacity' => $t->capacity,
+                ];
+                if (isset($bookedSet[$t->id])) {
+                    $booked[] = $entry;
+                } elseif ($t->capacity >= $partySize) {
+                    $free[] = $entry;
+                }
+                // Meja aktif tapi kekecilan: tidak masuk free maupun booked,
+                // supaya AI tidak menawarkannya untuk jumlah tamu tersebut.
+            }
+
+            return ['free' => $free, 'booked' => $booked, 'total' => count($free) + count($booked)];
+        } catch (\Exception $e) {
+            return ['free' => [], 'booked' => [], 'total' => 0];
+        }
+    }
+
+    /**
+     * Blok teks ketersediaan meja untuk disuntik ke system prompt AI,
+     * supaya AI tahu meja mana yang masih kosong / sudah terisi
+     * (termasuk yang terisi via WA/offline) sebelum menjawab tamu.
+     */
+    protected function buildTableAvailabilityPrompt(?string $date, ?string $time, int $partySize = 2, ?string $preferredArea = null): string
+    {
+        if (empty($date) || empty($time)) {
+            return '';
+        }
+
+        $status = $this->getLiveTableStatus($date, $time, $partySize);
+        if ($status['total'] === 0) {
+            return '';
+        }
+
+        $fmt = function (array $list): string {
+            if (empty($list)) return '(tidak ada)';
+            return implode(', ', array_map(
+                fn ($t) => "{$t['name']} [{$t['area']}, muat {$t['capacity']}]",
+                $list
+            ));
+        };
+
+        $out = "\nKETERSEDIAAN MEJA REAL-TIME untuk tanggal {$date} jam " . substr($time, 0, 5) . " ({$partySize} tamu)"
+            . ($preferredArea ? ", preferensi area tamu: {$preferredArea}" : "") . ":\n"
+            . "- MEJA KOSONG (boleh ditawarkan/dipilih): " . $fmt($status['free']) . "\n"
+            . "- MEJA TERISI (sudah dibooking web/AI/WA/offline — JANGAN ditawarkan): " . $fmt($status['booked']) . "\n"
+            . "ATURAN MEJA:\n"
+            . "- Hanya tawarkan meja dari daftar KOSONG di atas. Jangan pernah menyebut meja TERISI sebagai tersedia.\n"
+            . "- Jika daftar KOSONG kosong (semua penuh): katakan dengan ramah bahwa meja di jam tersebut sudah penuh (termasuk booking via WhatsApp/offline), lalu tawarkan jam lain atau area lain yang masih kosong.\n"
+            . "- Saat tamu konfirmasi, sistem otomatis menempatkan di meja kosong yang paling pas (area pilihan didahulukan).\n";
+
+        return $out;
+    }
+
+    /**
+     * Pilih meja kosong yang paling pas: area preferensi dulu,
+     * lalu kapasitas terkecil yang masih muat (best-fit).
+     */
+    protected function pickBestTable(string $date, string $time, int $partySize, ?string $preferredArea = null): ?array
+    {
+        $status = $this->getLiveTableStatus($date, $time, $partySize);
+        if (empty($status['free'])) {
+            return null;
+        }
+
+        $areasFor = function (?string $pref): array {
+            $p = strtolower((string) $pref);
+            if (str_contains($p, 'vip')) return ['VIP Lounge'];
+            if (str_contains($p, 'terrace') || str_contains($p, 'outdoor') || str_contains($p, 'teras')) return ['Terrace'];
+            if (str_contains($p, 'main hall') || str_contains($p, 'indoor') || str_contains($p, 'window') || str_contains($p, 'jendela')) return ['Main Hall', 'Window'];
+            return [];
+        };
+
+        $wanted = $areasFor($preferredArea);
+        $cands = $status['free'];
+
+        if (! empty($wanted)) {
+            $inArea = array_values(array_filter(
+                $cands,
+                fn ($t) => in_array($t['area'], $wanted, true)
+            ));
+            // Kalau area pilihan masih ada yang kosong, prioritaskan area itu.
+            if (! empty($inArea)) {
+                $cands = $inArea;
+            }
+        }
+
+        // Best-fit: kapasitas terkecil yang masih muat.
+        usort($cands, fn ($a, $b) => $a['capacity'] <=> $b['capacity']);
+
+        return $cands[0] ?? null;
+    }
+
+    /**
      * Knowledge base statis Ebony Cafe — info lokasi, fasilitas, dll.
      * Digunakan untuk menjawab pertanyaan umum tamu tanpa perlu panggil API.
      */
@@ -272,6 +394,22 @@ KNOWLEDGE;
             return ['created' => false, 'slot_full' => true];
         }
 
+        // Pilih meja kosong yang paling pas (area pilihan tamu didahulukan).
+        // Kalau semua meja yang muat sudah terisi (termasuk via WA/offline),
+        // JANGAN simpan reservasi — kembalikan info agar AI menawarkan alternatif.
+        $bestTable = $this->pickBestTable($date, $time, $partySize, $state['area'] ?? null);
+        if (! $bestTable) {
+            $altStatus = $this->getLiveTableStatus($date, $time, 1);
+            return [
+                'created' => false,
+                'tables_full' => true,
+                'alternatives' => array_map(
+                    fn ($t) => "{$t['name']} [{$t['area']}, muat {$t['capacity']}]",
+                    array_slice($altStatus['free'], 0, 5)
+                ),
+            ];
+        }
+
         do {
             $bookingNumber = (string) mt_rand(1000, 9999);
         } while (\App\Models\Reservation::where('booking_number', $bookingNumber)->exists());
@@ -285,7 +423,7 @@ KNOWLEDGE;
             'date'           => $date,
             'time'           => $time,
             'party_size'     => $partySize,
-            'table_id'       => null,
+            'table_id'       => $bestTable['id'],
             'occasion'       => 'Reservasi AI',
             'dietary_notes'  => null,
             'seating_notes'  => $state['area'] ?? null,
@@ -302,7 +440,7 @@ KNOWLEDGE;
             Log::error('Gagal mengirim notifikasi admin untuk reservasi AI #'.$bookingNumber.': '.$e->getMessage());
         }
 
-        return ['created' => true, 'booking_number' => $bookingNumber, 'reservation_id' => $reservation->id];
+        return ['created' => true, 'booking_number' => $bookingNumber, 'reservation_id' => $reservation->id, 'table' => $bestTable];
     }
 
     protected function extractReservationState(array $historyMessages, string $currentMessage, \Carbon\Carbon $now): array
@@ -779,6 +917,23 @@ KNOWLEDGE;
             ? "\nOCCASION TERDETEKSI: Tamu datang untuk '{$occasion}'. Gunakan rekomendasi ini dalam balasanmu jika relevan:\n{$occasionRec}\n"
             : "";
 
+        // Status meja REAL-TIME (termasuk booking via WA/offline) supaya AI
+        // tidak menawarkan meja yang sudah terisi.
+        $tableAvailabilityPrompt = '';
+        if (! empty($state['tanggal_iso']) && ! empty($state['jam'])) {
+            $aiPartySize = 2;
+            if (! empty($state['jumlah_tamu']) && preg_match('/(\d{1,2})/', (string) $state['jumlah_tamu'], $gm)) {
+                $aiPartySize = max(1, min(100, (int) $gm[1]));
+            }
+            $aiTime = '19:00';
+            if (preg_match('/(\d{1,2}):(\d{2})/', (string) $state['jam'], $tm)) {
+                $aiTime = sprintf('%02d:%02d', max(0, min(23, (int) $tm[1])), max(0, min(59, (int) $tm[2])));
+            }
+            $tableAvailabilityPrompt = $this->buildTableAvailabilityPrompt(
+                $state['tanggal_iso'], $aiTime, $aiPartySize, $state['area'] ?? null
+            );
+        }
+
         // Build system prompt yang kaya dan personal
         $systemPrompt = <<<PROMPT
 Kamu adalah **Ebony AI** 🍷 — dining concierge pribadi Ebony Cafe & Gallery yang cerdas, hangat, dan berpengetahuan luas.
@@ -801,6 +956,7 @@ PENGETAHUAN TENTANG EBONY CAFE:
 
 DATA MENU & MEJA REAL-TIME (hanya gunakan data ini!):
 {$this->getContext()}
+{$tableAvailabilityPrompt}
 {$soldOutInfo}
 ATURAN PENTING:
 - Jika tamu tanya lokasi/parkir/fasilitas/WiFi/dress code/pembayaran → jawab dari pengetahuan di atas
@@ -934,12 +1090,17 @@ PROMPT;
 
             if (($createResult['created'] ?? false) && ($createResult['booking_number'] ?? null)) {
                 $bookingNumber = $createResult['booking_number'];
+                $assignedTable = $createResult['table'] ?? null;
+                $mejaLabel = $assignedTable
+                    ? "{$assignedTable['name']} ({$assignedTable['area']})"
+                    : ($state['area'] ?? 'Main Hall (Indoor)');
 
                 $reservationData = [
                     'tanggal'      => $state['tanggal'] ?? $now->translatedFormat('l, d F Y'),
                     'jam'          => $state['jam'] ?? '19:00 WIB',
                     'jumlah_tamu'  => $state['jumlah_tamu'] ?? '2 Orang',
                     'area'         => $state['area'] ?? 'Main Hall (Indoor)',
+                    'meja'         => $mejaLabel,
                     'nama_tamu'    => $state['nama'] ?? 'Tamu',
                     'no_hp'        => $state['no_hp'] ?? '',
                     'email'        => $state['email'] ?? '',
@@ -948,7 +1109,7 @@ PROMPT;
                 $whatsappLink = $this->generateWhatsAppLink($reservationData);
 
                 if (empty($createResult['duplicate'])) {
-                    $replyText .= "\n\n✅ Reservasi kamu sudah tersimpan otomatis di sistem Ebony Cafe! Kode Booking: *#{$bookingNumber}*.";
+                    $replyText .= "\n\n✅ Reservasi kamu sudah tersimpan otomatis di sistem Ebony Cafe! Kode Booking: *#{$bookingNumber}*, meja: *{$mejaLabel}*. Datang langsung ke meja itu ya — denahnya bisa dilihat di halaman reservasi website.";
 
                     $waResult = app(\App\Services\WhatsAppService::class)
                         ->send($state['no_hp'], $this->buildConfirmationMessage($reservationData));
@@ -964,6 +1125,13 @@ PROMPT;
                 }
             } elseif (($createResult['slot_full'] ?? false)) {
                 $replyText .= "\n\nMohon maaf, kuota reservasi pada tanggal/jam tersebut sudah penuh. Silakan pilih tanggal atau jam lain ya 🙏";
+            } elseif (($createResult['tables_full'] ?? false)) {
+                $alts = ! empty($createResult['alternatives'])
+                    ? implode(', ', $createResult['alternatives'])
+                    : 'tidak ada meja kosong lain';
+                $replyText .= "\n\nMohon maaf, semua meja yang muat untuk {$state['jumlah_tamu']} di jam tersebut sudah terisi penuh (termasuk booking via WhatsApp/offline) 🙏 "
+                    . "Meja yang masih kosong di jam itu: {$alts}. "
+                    . "Mau pilih salah satunya, atau geser ke jam lain? Nanti admin juga bisa bantu carikan meja pengganti via WhatsApp 😊";
             }
         }
 
@@ -1099,6 +1267,7 @@ PROMPT;
     protected function buildConfirmationMessage(array $data): string
     {
         $namaTamu = !empty($data['nama_tamu']) ? $data['nama_tamu'] : 'Tamu';
+        $mejaLine = !empty($data['meja']) ? "🪑 *Meja*: {$data['meja']}\n" : "";
 
         return "Halo {$namaTamu}! 🌟\n\n"
              . "Reservasi kamu di *Ebony Cafe & Gallery* sudah kami terima:\n\n"
@@ -1106,7 +1275,8 @@ PROMPT;
              . "📅 *Tanggal*: {$data['tanggal']}\n"
              . "🕐 *Jam*: {$data['jam']}\n"
              . "👥 *Jumlah Tamu*: {$data['jumlah_tamu']}\n"
-             . "📍 *Area*: {$data['area']}\n\n"
+             . "📍 *Area*: {$data['area']}\n"
+             . $mejaLine . "\n"
              . "Mohon datang 15 menit sebelum jadwal ya. Terima kasih dan sampai jumpa! 👋\n\n"
              . "_(Pesan ini dikirim otomatis oleh Ebony AI)_";
     }
@@ -1119,6 +1289,7 @@ PROMPT;
         $jam = $data['jam'] ?? '-';
         $jumlahTamu = $data['jumlah_tamu'] ?? $data['tamu'] ?? $data['guest_count'] ?? '-';
         $area = $data['area'] ?? '-';
+        $meja = $data['meja'] ?? '-';
         $namaTamu = !empty($data['nama_tamu']) ? $data['nama_tamu'] : 'Tamu';
         $noHp = $data['no_hp'] ?? $data['phone'] ?? '-';
         $email = $data['email'] ?? '-';
@@ -1131,9 +1302,10 @@ PROMPT;
                  . $bookingLine
                  . "📅 *Tanggal*: {$tanggal}\n"
                  . "🕐 *Jam*: {$jam}\n"
-                 . "👥 *Jumlah Tamu*: {$jumlahTamu}\n"
-                 . "📍 *Area*: {$area}\n"
-                 . "👤 *Nama*: {$namaTamu}\n"
+                  . "👥 *Jumlah Tamu*: {$jumlahTamu}\n"
+                  . "📍 *Area*: {$area}\n"
+                  . "🪑 *Meja*: {$meja}\n"
+                  . "👤 *Nama*: {$namaTamu}\n"
                  . "📱 *No. HP / WhatsApp*: {$noHp}\n"
                  . "📧 *Email*: {$email}\n\n"
                  . "Mohon konfirmasi ketersediaan meja ya. Terima kasih! 🙏\n\n"

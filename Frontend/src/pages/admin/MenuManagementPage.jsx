@@ -95,10 +95,17 @@ export default function MenuManagementPage() {
 
     const dateVal = fd.get('date');
     const timeVal = fd.get('time');
+    const hasTime = !!timeVal;
     if (dateVal && timeVal) {
       fd.set('date', `${dateVal}T${timeVal}`);
+    } else if (dateVal) {
+      // Acara tanpa jam pasti — jam dibebaskan saat reservasi
+      fd.set('date', `${dateVal}T00:00`);
     }
+    fd.set('has_time', hasTime ? '1' : '0');
     fd.delete('time');
+    // end_date dikirim langsung sebagai datetime-local (boleh kosong)
+    if (!fd.get('end_date')) fd.set('end_date', '');
 
     try {
       if (editItem) {
@@ -308,12 +315,22 @@ export default function MenuManagementPage() {
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Date *</label>
-                  <input type="date" name="date" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T') : ''} required />
+                  <input type="date" name="date" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')[0] : ''} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Time *</label>
-                  <input type="time" name="time" className="form-input" defaultValue={editItem?.date ? editItem.date.split('T')?.substring(0, 5) : ''} required />
+                  <label className="form-label">Time <span style={{ fontWeight: 400 }}>(kosongkan jika tanpa jam pasti)</span></label>
+                  <input type="time" name="time" className="form-input" defaultValue={editItem?.has_time === false ? '' : (editItem?.date ? editItem.date.split('T')[1]?.substring(0, 5) : '')} />
                 </div>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Selesai <span style={{ fontWeight: 400 }}>(opsional — batas jam reservasi)</span></label>
+                <input
+                  type="datetime-local"
+                  name="end_date"
+                  className="form-input"
+                  defaultValue={editItem?.end_date ? String(editItem.end_date).substring(0, 16) : ''}
+                />
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>

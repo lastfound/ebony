@@ -60,6 +60,18 @@ export const confirmArrival = async(id) => {
     return res.data;
 };
 
+/** Denah meja untuk admin (bisa exclude reservasi yang sedang dibuka) */
+export const getAdminAvailableTables = async ({ date, time, party_size, exclude_reservation_id }) => {
+    const res = await api.get('/admin/tables/available', {
+        params: { date, time, party_size, exclude_reservation_id },
+    });
+    return res.data;
+};
+
+export const assignReservationTable = async (id, table_id) => {
+    return await updateReservation(id, { table_id });
+};
+
 // Kirim ulang notifikasi admin (Web Push / WhatsApp / Telegram) untuk satu reservasi.
 // channels opsional — kosongkan untuk mencoba semua kanal.
 export const resendReservationNotification = async(id, channels) => {

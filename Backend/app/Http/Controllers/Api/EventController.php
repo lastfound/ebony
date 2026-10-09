@@ -45,10 +45,15 @@ class EventController extends Controller
      */
     public function store(Request $request)
     {
+        // String kosong (dari input opsional) dinormalkan jadi null.
+        $request->merge(['end_date' => $request->input('end_date') ?: null]);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'date' => 'required|date',
+            'end_date' => 'nullable|date',
+            'has_time' => 'nullable|boolean',
             'image' => 'nullable|image|max:5120',
             'image_url' => 'nullable|string',
             'is_active' => 'nullable|boolean',
@@ -65,6 +70,8 @@ class EventController extends Controller
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
             'date' => $validated['date'],
+            'end_date' => $validated['end_date'] ?? null,
+            'has_time' => $request->boolean('has_time', true),
             'image_url' => $imageUrl,
             'is_active' => $request->boolean('is_active', true),
         ]);
@@ -82,10 +89,14 @@ class EventController extends Controller
     {
         $event = Event::findOrFail($id);
 
+        $request->merge(['end_date' => $request->input('end_date') ?: null]);
+
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
             'description' => 'nullable|string',
             'date' => 'sometimes|required|date',
+            'end_date' => 'nullable|date',
+            'has_time' => 'nullable|boolean',
             'image' => 'nullable|image|max:5120',
             'image_url' => 'nullable|string',
             'is_active' => 'nullable|boolean',
@@ -94,6 +105,16 @@ class EventController extends Controller
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('events', 'public');
             $validated['image_url'] = $path;
+        }
+
+        // Checkbox yang tidak dicentang tidak terkirim FormData —
+        // hanya timpa has_time kalau field-nya memang dikirim.
+        if ($request->has('has_time')) {
+            $validated['has_time'] = $request->boolean('has_time');
+        }
+        // Admin boleh mengosongkan jam selesai (kirim string kosong).
+        if ($request->has('end_date') && $request->input('end_date') === '') {
+            $validated['end_date'] = null;
         }
 
         $event->update($validated);

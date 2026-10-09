@@ -1,26 +1,24 @@
 import { useState, useEffect } from 'react';
 import { getMenuFavorites } from '../../api/publicApi';
 import MenuCard from './MenuCard';
-import SAMPLE_MENUS from '../../data/sampleMenus';
 
 import AOS from 'aos';
 
 export default function FavoritesSection() {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     getMenuFavorites()
       .then((data) => {
-        if (data && data.length > 0) {
-          setMenus(data);
-        } else {
-          // Fallback to sample data
-          setMenus(SAMPLE_MENUS);
-        }
+        // Tampilkan HANYA menu asli dari database (tanpa data contoh).
+        setMenus(Array.isArray(data) ? data : []);
+        setLoadFailed(false);
       })
       .catch(() => {
-        setMenus(SAMPLE_MENUS);
+        setMenus([]);
+        setLoadFailed(true);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -44,7 +42,7 @@ export default function FavoritesSection() {
             <div key={i} className="menu-card-skeleton" />
           ))}
         </div>
-      ) : (
+      ) : menus.length > 0 ? (
         <div className="favorites__grid">
           {menus.slice(0, 6).map((menu, index) => (
             <div key={menu.id} data-aos="fade-up" data-aos-delay={index * 100}>
@@ -52,6 +50,12 @@ export default function FavoritesSection() {
             </div>
           ))}
         </div>
+      ) : (
+        <p style={{ textAlign: 'center', color: 'var(--color-muted)' }}>
+          {loadFailed
+            ? 'Gagal memuat menu. Periksa koneksi ke server lalu muat ulang halaman.'
+            : 'Belum ada menu favorit saat ini.'}
+        </p>
       )}
 
       <div className="favorites__actions">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
+use App\Models\RestaurantTable;
 use App\Services\ReservationNotifierService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -25,10 +26,31 @@ class ReservationController extends Controller
             'date' => 'required|date|after_or_equal:today',
             'time' => 'required|string',
             'party_size' => 'required|integer|min:1|max:100',
+            'table_id' => 'nullable|integer|exists:restaurant_tables,id',
             'occasion' => 'nullable|string|max:255',
             'dietary_notes' => 'nullable|string|max:1000',
             'seating_notes' => 'nullable|string|max:1000',
         ]);
+
+        // Validasi meja: harus aktif, muat, dan belum dibooking di slot yang sama.
+        if (! empty($validated['table_id'])) {
+            $check = $this->checkTableAvailable(
+                (int) $validated['table_id'],
+                $validated['date'],
+                $validated['time'],
+                (int) $validated['party_size']
+            );
+            if (! $check['ok']) {
+                return response()->json([
+                    'message' => $check['message'],
+                    'available_tables' => $this->availableTablesForSlot(
+                        $validated['date'],
+                        $validated['time'],
+                        (int) $validated['party_size']
+                    ),
+                ], 422);
+            }
+        }
 
         // Quota check: maksimal 25 tamu per slot waktu yang sama di tanggal tersebut
         $currentBookedGuests = Reservation::where('date', $validated['date'])
@@ -56,7 +78,7 @@ class ReservationController extends Controller
             'date' => $validated['date'],
             'time' => $validated['time'],
             'party_size' => $validated['party_size'],
-            'table_id' => null, // Set null karena belum menggunakan sistem meja
+            'table_id' => $validated['table_id'] ?? null,
             'occasion' => $validated['occasion'] ?? null,
             'dietary_notes' => $validated['dietary_notes'] ?? null,
             'seating_notes' => $validated['seating_notes'] ?? null,
@@ -183,11 +205,12 @@ class ReservationController extends Controller
      */
     public function show($id)
     {
-        // Panggilan relation table dan relation preorders dihilangkan sementara agar aman dari error
-        $r = Reservation::findOrFail($id);
+        $r = Reservation::with('table')->findOrFail($id);
 
         $dateFormatted = Carbon::parse($r->date)->format('M d, Y');
         $timeFormatted = Carbon::parse($r->time)->format('g:i A');
+        $rawDate = is_string($r->date) ? substr((string) $r->date, 0, 10) : Carbon::parse($r->date)->format('Y-m-d');
+        $rawTime = is_string($r->time) ? substr((string) $r->time, 0, 5) : Carbon::parse($r->time)->format('H:i');
 
         return response()->json([
             'id' => $r->id,
@@ -196,8 +219,9 @@ class ReservationController extends Controller
             'phone' => $r->phone,
             'email' => $r->email,
             'date' => $dateFormatted,
-            'raw_date' => is_string($r->date) ? $r->date : Carbon::parse($r->date)->format('Y-m-d'),
+            'raw_date' => $rawDate,
             'time' => $timeFormatted,
+            'raw_time' => $rawTime,
             'party_size' => $r->party_size,
             'occasion' => $r->occasion,
             'source' => $r->source,
@@ -205,6 +229,16 @@ class ReservationController extends Controller
             'status' => $r->status,
             'dietary_notes' => $r->dietary_notes,
             'seating_notes' => $r->seating_notes,
+            'table_id' => $r->table_id,
+            'table' => $r->table ? [
+                'id' => $r->table->id,
+                'name' => $r->table->name,
+                'capacity' => $r->table->capacity,
+                'area' => $r->table->area,
+            ] : null,
+            // Denah untuk slot reservasi ini (exclude diri sendiri supaya meja
+            // yang sedang dipakai reservasi ini tetap terlihat "miliknya").
+            'table_availability' => $this->availableTablesForSlot($rawDate, $rawTime, (int) $r->party_size, (int) $r->id),
             'notification_status' => $r->notification_status,
             'failed_notification_channels' => $this->notifier->failedChannels($r),
             'guest' => [
@@ -264,6 +298,7 @@ class ReservationController extends Controller
             'date' => 'sometimes|required|date',
             'time' => 'sometimes|required',
             'party_size' => 'sometimes|required|integer|min:1|max:100',
+            'table_id' => 'nullable|integer|exists:restaurant_tables,id',
             'occasion' => 'nullable|string|max:255',
             'dietary_notes' => 'nullable|string',
             'seating_notes' => 'nullable|string',
@@ -271,11 +306,26 @@ class ReservationController extends Controller
             'status' => 'nullable|string',
         ]);
 
+        // Kalau admin ganti / assign meja, validasi bentrok (kecuali milik sendiri).
+        if (array_key_exists('table_id', $validated) && ! empty($validated['table_id'])) {
+            $date = $validated['date'] ?? (is_string($reservation->date) ? substr((string) $reservation->date, 0, 10) : Carbon::parse($reservation->date)->format('Y-m-d'));
+            $time = $validated['time'] ?? (is_string($reservation->time) ? substr((string) $reservation->time, 0, 5) : Carbon::parse($reservation->time)->format('H:i'));
+            $partySize = (int) ($validated['party_size'] ?? $reservation->party_size);
+
+            $check = $this->checkTableAvailable((int) $validated['table_id'], $date, $time, $partySize, (int) $reservation->id);
+            if (! $check['ok']) {
+                return response()->json([
+                    'message' => $check['message'],
+                    'available_tables' => $this->availableTablesForSlot($date, $time, $partySize, (int) $reservation->id),
+                ], 422);
+            }
+        }
+
         $reservation->update($validated);
 
         return response()->json([
             'message' => 'Reservasi berhasil diperbarui.',
-            'data' => $reservation,
+            'data' => $reservation->fresh('table'),
         ]);
     }
 
@@ -328,5 +378,79 @@ class ReservationController extends Controller
         };
 
         return new StreamedResponse($callback, 200, $headers);
+    }
+
+    /**
+     * Cek satu meja untuk satu slot (tanggal + jam yang sama).
+     * Dipakai saat user pilih meja maupun saat admin assign meja.
+     *
+     * @return array{ok: bool, message: string}
+     */
+    protected function checkTableAvailable(int $tableId, string $date, string $time, int $partySize, ?int $excludeReservationId = null): array
+    {
+        $table = RestaurantTable::find($tableId);
+        if (! $table || ! $table->is_active) {
+            return ['ok' => false, 'message' => 'Meja yang dipilih tidak tersedia.'];
+        }
+
+        if ($table->capacity < $partySize) {
+            return ['ok' => false, 'message' => "Meja {$table->name} hanya muat {$table->capacity} orang, sedangkan tamu {$partySize} orang. Silakan pilih meja lain yang masih kosong."];
+        }
+
+        $hourPrefix = substr($time, 0, 2);
+        $conflict = Reservation::where('date', $date)
+            ->where('time', 'like', $hourPrefix.'%')
+            ->where('status', '!=', 'cancelled')
+            ->where('table_id', $tableId)
+            ->when($excludeReservationId, fn ($q) => $q->where('id', '!=', $excludeReservationId))
+            ->exists();
+
+        if ($conflict) {
+            return ['ok' => false, 'message' => "Meja {$table->name} sudah terisi di jam tersebut (mungkin via offline/WA). Silakan pilih meja lain yang masih kosong, atau hubungi tamu via WhatsApp untuk menawarkan meja pengganti."];
+        }
+
+        return ['ok' => true, 'message' => 'OK'];
+    }
+
+    /**
+     * Daftar meja + status kosong/isi untuk satu slot.
+     * Dipakai untuk denah di user & admin, dan sebagai saran alternatif
+     * saat meja pilihan ternyata sudah terisi.
+     */
+    protected function availableTablesForSlot(string $date, string $time, int $partySize, ?int $excludeReservationId = null): array
+    {
+        $hourPrefix = substr($time, 0, 2);
+
+        $bookedIds = Reservation::where('date', $date)
+            ->where('time', 'like', $hourPrefix.'%')
+            ->where('status', '!=', 'cancelled')
+            ->whereNotNull('table_id')
+            ->when($excludeReservationId, fn ($q) => $q->where('id', '!=', $excludeReservationId))
+            ->pluck('table_id')
+            ->unique()
+            ->all();
+
+        $bookedSet = array_flip($bookedIds);
+
+        return RestaurantTable::where('is_active', true)
+            ->orderBy('area')
+            ->orderBy('capacity')
+            ->orderBy('name')
+            ->get(['id', 'name', 'capacity', 'area'])
+            ->map(function ($t) use ($bookedSet, $partySize) {
+                $isBooked = isset($bookedSet[$t->id]);
+                $fits = $t->capacity >= $partySize;
+
+                return [
+                    'id' => $t->id,
+                    'name' => $t->name,
+                    'capacity' => $t->capacity,
+                    'area' => $t->area,
+                    'is_booked' => $isBooked,
+                    'fits_party' => $fits,
+                    'is_available' => ! $isBooked && $fits,
+                    'reason' => $isBooked ? 'booked' : ($fits ? null : 'too_small'),
+                ];
+            })->all();
     }
 }

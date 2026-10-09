@@ -3,43 +3,23 @@ import { getEvents } from '../../api/publicApi';
 import EventCard from './EventCard';
 import AOS from 'aos';
 
-const SAMPLE_EVENTS = [
-  {
-    id: 1,
-    title: 'Wine & Dine Night',
-    description: 'An exclusive wine pairing dinner featuring premium small-batch and curated pours.',
-    date: '2026-10-12T19:00:00',
-    image_url: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=600&q=80',
-  },
-  {
-    id: 2,
-    title: "Chef's Table Experience",
-    description: 'Join our head chef for an intimate dinner with behind-the-scenes stories and tastings.',
-    date: '2026-10-19T19:30:00',
-    image_url: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=80',
-  },
-  {
-    id: 3,
-    title: 'Live Jazz Evening',
-    description: 'Enjoy live jazz with artisan-crafted cocktails and small plates in the lounge area.',
-    date: '2026-10-25T20:00:00',
-    image_url: 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=600&q=80',
-  },
-];
-
 export default function EventsSection() {
   const [events, setEvents] = useState([]);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     getEvents()
       .then((data) => {
-        if (data && data.length > 0) {
-          setEvents(data);
-        } else {
-          setEvents(SAMPLE_EVENTS);
-        }
+        // Tampilkan HANYA data asli dari database.
+        // (Dulu ada data contoh khayalan yang foto & isinya tidak sesuai
+        //  input admin — sudah dibuang supaya tidak menipu pengunjung.)
+        setEvents(Array.isArray(data) ? data : []);
+        setLoadFailed(false);
       })
-      .catch(() => setEvents(SAMPLE_EVENTS));
+      .catch(() => {
+        setEvents([]);
+        setLoadFailed(true);
+      });
   }, []);
 
   useEffect(() => {
@@ -62,6 +42,13 @@ export default function EventsSection() {
           </div>
         ))}
       </div>
+      {events.length === 0 && (
+        <p style={{ textAlign: 'center', color: 'var(--color-muted)', marginTop: '12px' }}>
+          {loadFailed
+            ? 'Gagal memuat event. Periksa koneksi ke server lalu muat ulang halaman.'
+            : 'Belum ada event mendatang. Pantau terus info terbaru dari kami!'}
+        </p>
+      )}
     </section>
   );
 }

@@ -18,7 +18,8 @@ export default function EventAdminCard({ event, onEdit, onDelete }) {
           alt={event.title} 
           className="event-admin-card__img-main"
           onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80';
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80';
           }}
         />
         <span className="event-card__tag">UPCOMING</span>

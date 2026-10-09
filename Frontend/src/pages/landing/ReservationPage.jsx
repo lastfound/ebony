@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { submitReservation } from '../../api/publicApi';
+import { submitReservation, getAvailableTables } from '../../api/publicApi';
 import Spinner from '../../components/ui/Spinner';
+import TableMap from '../../components/TableMap';
 import Navbar from '../../components/landing/Navbar';
 
 const INITIAL = {
@@ -39,16 +40,35 @@ function FormField({ label, error, required, children, ...props }) {
 export default function ReservationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const eventTitle = location.state?.eventTitle;
+  // Info event diteruskan dari halaman detail event (tanggal & jam dibaca
+  // sebagai teks mentah YYYY-MM-DDTHH:MM agar tidak geser zona waktu).
+  const eventState = location.state || {};
+  const eventTitle = eventState.eventTitle;
+  const eventDateStr = eventState.eventDate ? String(eventState.eventDate).substring(0, 10) : '';
+  const eventTimeStr = eventState.eventDate ? String(eventState.eventDate).substring(11, 16) : '';
+  const eventEndStr = eventState.eventEndDate ? String(eventState.eventEndDate).substring(11, 16) : '';
+  // Jam dikunci hanya jika event punya jam pasti (bukan 00:00).
+  const eventTimeLocked = Boolean(eventTitle && eventDateStr && eventState.eventHasTime !== false && eventTimeStr && eventTimeStr !== '00:00');
+  const eventHour = eventTimeLocked ? eventTimeStr.substring(0, 2) : '';
+  const eventMinute = eventTimeLocked ? eventTimeStr.substring(3, 5) : '00';
 
   const [form, setForm] = useState({
     ...INITIAL,
+    date: eventDateStr || '',
+    selectedHour: eventHour || '',
+    selectedMinute: eventMinute || '00',
     occasion: eventTitle ? `Event: ${eventTitle}` : '',
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [bookingNo, setBookingNo] = useState(null);
+  const [selectedTableName, setSelectedTableName] = useState('');
+
+  // Denah meja: hanya yang kosong yang bisa dipilih
+  const [tables, setTables] = useState([]);
+  const [tablesMeta, setTablesMeta] = useState(null);
+  const [fetchedSlotKey, setFetchedSlotKey] = useState('');
 
   // Menentukan jam yang valid berdasarkan tanggal yang dipilih
   const getHourOptions = (selectedDate) => {
@@ -78,19 +98,78 @@ export default function ReservationPage() {
     return hours;
   };
 
-  const hourOptions = getHourOptions(form.date);
-  const isMonday = form.date && new Date(form.date).getDay() === 1;
+  const hourOptions = eventTimeLocked
+    ? [{ value: eventHour, label: `${eventTimeStr} (Jam acara)` }]
+    : getHourOptions(form.date);
+  // Event yang dibuat admin menentukan jadwalnya sendiri (termasuk jika
+  // admin sengaja membuka event di hari Senin) — aturan tutup Senin hanya
+  // untuk reservasi umum tanpa event.
+  const isMonday = !eventDateStr && form.date && new Date(form.date).getDay() === 1;
+  const fullTimePreview = form.selectedHour ? `${form.selectedHour}:${form.selectedMinute}` : '';
+
+  // Ambil denah setiap kali slot berubah — user hanya melihat status terbaru.
+  // Catatan: tidak ada setState sinkron di dalam effect (aturan react-hooks).
+  // Status loading dihitung dari slotKey vs fetchedSlotKey di bawah.
+  const slotKey = `${form.date}|${form.selectedHour}|${form.selectedMinute}|${form.party_size}|${isMonday ? 'closed' : 'open'}`;
+  const slotValid = Boolean(form.date && form.selectedHour && form.party_size && !isMonday);
+  const loadingTables = slotValid && fetchedSlotKey !== slotKey;
+  useEffect(() => {
+    if (!form.date || !form.selectedHour || !form.party_size || isMonday) return undefined;
+    const key = `${form.date}|${form.selectedHour}|${form.selectedMinute}|${form.party_size}|open`;
+    let cancelled = false;
+    getAvailableTables({
+      date: form.date,
+      time: `${form.selectedHour}:${form.selectedMinute}`,
+      party_size: Number(form.party_size) || 1,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        setTables(res.data || []);
+        setTablesMeta(res.meta || null);
+        setFetchedSlotKey(key);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTables([]);
+          setTablesMeta(null);
+          setFetchedSlotKey(key);
+        }
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotKey]);
+
+  const clearTableMap = () => {
+    setTables([]);
+    setTablesMeta(null);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    // Tanggal & jam milik event tidak boleh diubah user.
+    if (name === 'date' && eventDateStr) return;
+    if ((name === 'selectedHour' || name === 'selectedMinute') && eventTimeLocked) return;
+
     if (name === 'date') {
-      setForm((prev) => ({ ...prev, date: value, selectedHour: '', selectedMinute: '00' }));
+      setForm((prev) => ({ ...prev, date: value, selectedHour: '', selectedMinute: '00', table_id: '' }));
+      clearTableMap();
+    } else if (name === 'selectedHour' || name === 'selectedMinute' || name === 'party_size') {
+      // Slot berubah = pilihan meja lama tidak berlaku lagi
+      setForm((prev) => ({ ...prev, [name]: value, table_id: '' }));
+      clearTableMap();
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
 
-    setErrors((prev) => ({ ...prev, [name]: '', general: '' }));
+    setErrors((prev) => ({ ...prev, [name]: '', general: '', table_id: '' }));
+  };
+
+  const handleSelectTable = (id) => {
+    const found = tables.find((t) => String(t.id) === String(id));
+    setForm((prev) => ({ ...prev, table_id: id }));
+    setSelectedTableName(found ? `${found.name} (${found.area})` : '');
+    setErrors((prev) => ({ ...prev, table_id: '', general: '' }));
   };
 
   const validate = () => {
@@ -104,6 +183,13 @@ export default function ReservationPage() {
     if (form.party_size < 1 || form.party_size > 100) errs.party_size = 'Jumlah tamu 1–100 orang';
     if (form.occasion === 'Other' && !form.customOccasion.trim()) {
       errs.occasion = 'Sebutkan jenis acara Anda';
+    }
+    // Meja wajib dipilih kalau masih ada yang kosong — biar admin langsung tau posisi.
+    if (tablesMeta && tablesMeta.available > 0 && !form.table_id) {
+      errs.table_id = 'Silakan pilih meja yang masih kosong pada denah di bawah.';
+    }
+    if (tablesMeta && tablesMeta.available === 0 && tables.length > 0) {
+      errs.table_id = 'Semua meja yang muat sudah terisi di jam ini. Ganti jam atau hubungi admin via WhatsApp.';
     }
     return errs;
   };
@@ -122,13 +208,24 @@ export default function ReservationPage() {
       ...form,
       time: fullTime,
       occasion: form.occasion === 'Other' ? form.customOccasion : form.occasion,
+      table_id: form.table_id || null,
     };
 
     try {
       const res = await submitReservation(payload);
+      const chosen = tables.find((t) => String(t.id) === String(form.table_id));
+      if (chosen) setSelectedTableName(`${chosen.name} (${chosen.area})`);
       setBookingNo(res.booking_number || res.data?.booking_number || 'EBONY-001');
       setSuccess(true);
     } catch (error) {
+      // Kalau meja keburu diambil orang lain (termasuk offline/WA), tampilkan denah terbaru.
+      const freshTables = error.response?.data?.available_tables;
+      if (freshTables) {
+        setTables(freshTables);
+        const avail = freshTables.filter((t) => t.is_available).length;
+        setTablesMeta((prev) => (prev ? { ...prev, available: avail } : prev));
+        setForm((prev) => ({ ...prev, table_id: '' }));
+      }
       const errMsg = error.response?.data?.message || 'Terjadi kesalahan sistem atau kuota penuh. Coba lagi.';
       setErrors({ general: errMsg });
     } finally {
@@ -152,6 +249,12 @@ export default function ReservationPage() {
           
           <p style={{ color: '#444', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '24px' }}>
             Terima kasih, <strong>{form.name}</strong>. Permintaan reservasi Anda sedang diproses. Tim Admin Ebony Cafe akan menghubungi Anda melalui WhatsApp (<strong>{form.phone}</strong>) untuk konfirmasi ketersediaan tempat.
+            {eventTitle && (
+              <><br />Reservasi ini untuk acara <strong>{eventTitle}</strong> pada <strong>{form.date} jam {form.selectedHour}:{form.selectedMinute}</strong>.</>
+            )}
+            {selectedTableName && (
+              <><br />Meja pilihan Anda: <strong>{selectedTableName}</strong> — admin akan menempatkan Anda di meja tersebut bila masih kosong, atau menawarkan meja pengganti bila sudah terisi.</>
+            )}
           </p>
 
           <button 
@@ -177,6 +280,19 @@ export default function ReservationPage() {
           <p className="reservation-page__subtitle">
             Isi form di bawah untuk melakukan reservasi di Ebony Cafe &amp; Gallery.
           </p>
+
+          {eventTitle && (
+            <div className="alert" style={{ marginBottom: 20, background: '#fdf6e0', border: '1px solid #d4af37', borderRadius: '8px', padding: '12px 16px', fontSize: '0.88rem', lineHeight: 1.6 }}>
+              🎟 <strong>Reservasi untuk event: {eventTitle}</strong>
+              <br />
+              📅 Tanggal mengikuti acara ({eventDateStr})
+              {eventTimeLocked ? (
+                <> — 🕐 jam mengikuti acara ({eventTimeStr}{eventEndStr ? `, acara sampai jam ${eventEndStr}` : ''}) dan tidak bisa diubah.</>
+              ) : (
+                <> — acara ini tanpa jam pasti, jadi <strong>jam bebas kamu pilih sendiri</strong>.</>
+              )}
+            </div>
+          )}
 
           {errors.general && (
             <div className="alert alert--error" style={{ marginBottom: 20 }}>
@@ -230,7 +346,8 @@ export default function ReservationPage() {
                 value={form.date}
                 onChange={handleChange}
                 error={errors.date}
-                min={new Date().toISOString().split('T')[0]}
+                min={eventDateStr || new Date().toISOString().split('T')[0]}
+                disabled={Boolean(eventDateStr)}
                 required
               />
 
@@ -242,15 +359,17 @@ export default function ReservationPage() {
                     value={form.selectedHour}
                     onChange={handleChange}
                     className={`form-input ${errors.time ? 'is-error' : ''}`}
-                    disabled={!form.date || isMonday}
+                    disabled={!form.date || isMonday || eventTimeLocked}
                     style={{ flex: 2 }}
                   >
                     <option value="">
-                      {!form.date 
-                        ? '-- Pilih Tanggal Dahulu --' 
-                        : isMonday 
-                          ? '-- Tutup Hari Senin --' 
-                          : '-- Pilih Jam --'
+                      {eventTimeLocked
+                        ? `${eventTimeStr} (Jam acara)`
+                        : !form.date
+                          ? '-- Pilih Tanggal Dahulu --'
+                          : isMonday
+                            ? '-- Tutup Hari Senin --'
+                            : '-- Pilih Jam --'
                       }
                     </option>
                     {hourOptions.map((h) => (
@@ -266,13 +385,19 @@ export default function ReservationPage() {
                     value={form.selectedMinute}
                     onChange={handleChange}
                     className="form-input"
-                    disabled={!form.selectedHour}
+                    disabled={!form.selectedHour || eventTimeLocked}
                     style={{ flex: 1 }}
                   >
-                    <option value="00">:00</option>
-                    <option value="15">:15</option>
-                    <option value="30">:30</option>
-                    <option value="45">:45</option>
+                    {eventTimeLocked ? (
+                      <option value={form.selectedMinute}>:{form.selectedMinute}</option>
+                    ) : (
+                      <>
+                        <option value="00">:00</option>
+                        <option value="15">:15</option>
+                        <option value="30">:30</option>
+                        <option value="45">:45</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </FormField>
@@ -345,6 +470,25 @@ export default function ReservationPage() {
                   </>
                 )}
               </div>
+            </div>
+
+            {/* Pilih Meja — hanya yang kosong yang bisa diklik */}
+            <div className="form-group">
+              <label className="form-label">
+                Pilih Meja <span className="form-required">*</span>
+              </label>
+              <p style={{ fontSize: '12px', color: '#777', margin: '0 0 10px' }}>
+                {fullTimePreview && form.date
+                  ? `Denah untuk ${form.date} jam ${fullTimePreview} — hijau kosong bisa dipilih, merah sudah terisi.`
+                  : 'Pilih tanggal & jam dulu, denah meja yang masih kosong akan muncul di sini.'}
+              </p>
+              <TableMap
+                tables={tables}
+                selectedId={form.table_id}
+                onSelect={handleSelectTable}
+                loading={loadingTables}
+              />
+              {errors.table_id && <span className="form-error">{errors.table_id}</span>}
             </div>
 
             {/* Catatan Dietary */}

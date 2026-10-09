@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AdminLayout from '../../components/admin/AdminLayout';
 import Spinner from '../../components/ui/Spinner';
-import { getReservationDetail, updateReservationStatus, resendReservationNotification } from '../../api/adminApi';
+import TableMap from '../../components/TableMap';
+import { getReservationDetail, updateReservationStatus, resendReservationNotification, getAdminAvailableTables, assignReservationTable } from '../../api/adminApi';
 
 const NOTIF_CHANNELS = [
   { key: 'web_push', label: 'Web Push', icon: '🔔' },
@@ -32,6 +33,13 @@ export default function ReservationDetailPage() {
   const [resending, setResending] = useState(false);
   const [notifMessage, setNotifMessage] = useState(null);
 
+  // Denah meja — di bawah status reservasi
+  const [tables, setTables] = useState([]);
+  const [selectedTableId, setSelectedTableId] = useState(null);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [savingTable, setSavingTable] = useState(false);
+  const [tableMessage, setTableMessage] = useState(null);
+
   // Saat id berubah, kembali ke status "memuat" tanpa setState di dalam effect.
   const [loadedId, setLoadedId] = useState(id);
   if (id !== loadedId) {
@@ -50,6 +58,9 @@ export default function ReservationDetailPage() {
         const data = resDetail?.data || resDetail || null;
         setReservation(data);
         setSelectedStatus(data?.status || 'pending');
+        setSelectedTableId(data?.table_id || null);
+        // Denah langsung dari API detail (sudah dihitung per slot).
+        if (data?.table_availability) setTables(data.table_availability);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -134,6 +145,61 @@ export default function ReservationDetailPage() {
     }
   };
 
+  const refreshTables = async () => {
+    if (!reservation?.raw_date || !reservation?.raw_time) return;
+    setLoadingTables(true);
+    setTableMessage(null);
+    try {
+      const res = await getAdminAvailableTables({
+        date: reservation.raw_date,
+        time: reservation.raw_time,
+        party_size: reservation.party_size,
+        exclude_reservation_id: id,
+      });
+      setTables(res.data || []);
+    } catch (err) {
+      setTableMessage({ ok: false, text: err.response?.data?.message || 'Gagal memuat denah meja.' });
+    } finally {
+      setLoadingTables(false);
+    }
+  };
+
+  const handleSaveTable = async () => {
+    if (!selectedTableId) {
+      setTableMessage({ ok: false, text: 'Pilih dulu meja yang masih kosong pada denah.' });
+      return;
+    }
+    setSavingTable(true);
+    setTableMessage(null);
+    try {
+      const res = await assignReservationTable(id, Number(selectedTableId));
+      const saved = res.data || res;
+      setReservation((prev) => (prev ? {
+        ...prev,
+        table_id: saved.table_id ?? Number(selectedTableId),
+        table: saved.table || tables.find((t) => String(t.id) === String(selectedTableId)) || prev.table,
+      } : prev));
+      const chosen = tables.find((t) => String(t.id) === String(selectedTableId));
+      setTableMessage({
+        ok: true,
+        text: chosen
+          ? `Meja ${chosen.name} (${chosen.area}) berhasil disimpan. Tamu sudah tau posisinya di meja berapa.`
+          : 'Meja berhasil disimpan.',
+      });
+      refreshTables();
+    } catch (err) {
+      const fresh = err.response?.data?.available_tables;
+      if (fresh) setTables(fresh);
+      setTableMessage({
+        ok: false,
+        text: (err.response?.data?.message || 'Gagal menyimpan meja.')
+          + ' Meja itu kemungkinan baru saja terisi (offline/WA) — hubungi tamu via WhatsApp dan tawarkan meja lain yang masih kosong.',
+      });
+    } finally {
+      setSavingTable(false);
+    }
+  };
+
   const formatWaNumber = (phone) => {
     if (!phone) return '';
     let cleaned = phone.replace(/\D/g, '');
@@ -177,13 +243,20 @@ export default function ReservationDetailPage() {
         closingMessage = 'Terima kasih telah menghubungi Ebony Cafe & Gallery!';
     }
 
+    const tableLine = reservation.table
+      ? `• Meja: ${reservation.table.name} (${reservation.table.area})\n`
+      : (selectedTableId
+        ? `• Meja: ${(tables.find((t) => String(t.id) === String(selectedTableId))?.name) || `#${selectedTableId}`} (pilihan sementara, belum disimpan)\n`
+        : `• Meja: Belum ditentukan\n`);
+
     const msg = encodeURIComponent(
       `Halo Kak ${reservation.guest_name || reservation.name || ''},\n\n` +
       `Kami dari Admin *Ebony Cafe & Gallery* ingin mengonfirmasi reservasi Anda:\n` +
       `• Kode Booking: #${reservation.booking_number || reservation.id}\n` +
       `• Tanggal: ${reservation.formatted_date || reservation.date}\n` +
       `• Jam: ${reservation.time}\n` +
-      `• Jumlah Tamu: ${reservation.party_size} Orang\n\n` +
+      `• Jumlah Tamu: ${reservation.party_size} Orang\n` +
+      tableLine + `\n` +
       `Status reservasi Anda saat ini: *${currentStatus}*.\n\n` +
       `${closingMessage}`
     );
@@ -307,6 +380,22 @@ export default function ReservationDetailPage() {
                 <label style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, display: 'block' }}>JUMLAH TAMU</label>
                 <div style={{ fontSize: '1rem', fontWeight: 600, color: '#1a1a1a' }}>👥 {reservation.party_size || 0} Guests</div>
               </div>
+            </div>
+
+            <hr style={{ border: 'none', borderTop: '1px dashed #eee', margin: '16px 0' }} />
+
+            <div>
+              <label style={{ fontSize: '0.75rem', color: '#888', fontWeight: 600, display: 'block' }}>MEJA PILIHAN TAMU / SAAT INI</label>
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: reservation.table ? '#0f7b3f' : '#b3261e' }}>
+                {reservation.table
+                  ? `🪑 ${reservation.table.name} — ${reservation.table.area} (muat ${reservation.table.capacity})`
+                  : 'Belum ada meja — pilih di denah sebelah kanan.'}
+              </div>
+              {reservation.seating_notes && (
+                <div style={{ fontSize: '0.85rem', color: '#666', marginTop: 4 }}>
+                  Preferensi tamu: “{reservation.seating_notes}”
+                </div>
+              )}
             </div>
           </div>
 
@@ -449,6 +538,55 @@ export default function ReservationDetailPage() {
             </div>
 
             {savingStatus && <p style={{ fontSize: '0.8rem', color: '#888', margin: 0 }}>Menyimpan status...</p>}
+          </div>
+
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea', borderTop: '4px solid #d4af37' }}>
+            <h3 style={{ fontSize: '1rem', marginBottom: '8px', color: '#1a1a1a' }}>🪑 Denah Meja — {reservation.raw_date} jam {(reservation.raw_time || '').slice(0, 5)}</h3>
+            <p style={{ fontSize: '0.82rem', color: '#666', margin: '0 0 12px' }}>
+              Hijau = kosong bisa dipilih • Merah = sudah terisi (web / offline / WA).
+              Begitu dikonfirmasi, tamu langsung tau duduk di meja berapa dan di mana posisinya.
+              Kalau meja pilihan tamu ternyata sudah keisi offline, hubungi via WhatsApp lalu pilihkan meja lain yang masih kosong.
+            </p>
+            <TableMap
+              tables={tables}
+              selectedId={selectedTableId}
+              onSelect={setSelectedTableId}
+              loading={loadingTables}
+              compact
+            />
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button
+                type="button"
+                className="btn btn--primary"
+                disabled={savingTable || !selectedTableId}
+                onClick={handleSaveTable}
+                style={{ flex: 1 }}
+              >
+                {savingTable ? 'MENYIMPAN...' : '💾 Simpan Meja'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={loadingTables}
+                onClick={refreshTables}
+              >
+                🔄
+              </button>
+            </div>
+            {tableMessage && (
+              <div
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.82rem',
+                  color: tableMessage.ok ? '#0f7b3f' : '#b3261e',
+                  background: tableMessage.ok ? '#e6f6ec' : '#fdecea',
+                }}
+              >
+                {tableMessage.text}
+              </div>
+            )}
           </div>
 
           <div style={{ background: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #eaeaea', borderTop: '4px solid #1a1a1a' }}>

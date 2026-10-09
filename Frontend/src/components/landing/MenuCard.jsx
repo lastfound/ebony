@@ -7,7 +7,8 @@ export default function MenuCard({ menu }) {
           alt={menu.name}
           loading="lazy"
           onError={(e) => {
-            e.target.src = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=60';
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&q=60';
           }}
         />
         <span className="menu-card__badge">{menu.badge || menu.category}</span>
