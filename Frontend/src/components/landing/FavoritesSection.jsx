@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import { getMenuFavorites } from '../../api/publicApi';
+import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettings';
 import MenuCard from './MenuCard';
-
 import AOS from 'aos';
 
 export default function FavoritesSection() {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(() => getLocalSiteSettings().menu_pdf_url || 'https://drive.google.com/');
 
   useEffect(() => {
     getMenuFavorites()
       .then((data) => {
-        // Tampilkan HANYA menu asli dari database (tanpa data contoh).
+        // Tampilkan HANYA menu asli dari database
         setMenus(Array.isArray(data) ? data : []);
         setLoadFailed(false);
       })
@@ -21,6 +22,17 @@ export default function FavoritesSection() {
         setLoadFailed(true);
       })
       .finally(() => setLoading(false));
+
+    // Ambil URL PDF Menu yang dikonfigurasi admin
+    getSiteSettings().then((s) => {
+      if (s?.menu_pdf_url) setPdfUrl(s.menu_pdf_url);
+    });
+
+    const handleUpdate = (e) => {
+      if (e.detail?.menu_pdf_url) setPdfUrl(e.detail.menu_pdf_url);
+    };
+    window.addEventListener('site-settings-updated', handleUpdate);
+    return () => window.removeEventListener('site-settings-updated', handleUpdate);
   }, []);
 
   useEffect(() => {
@@ -59,10 +71,10 @@ export default function FavoritesSection() {
       )}
 
       <div className="favorites__actions">
-        <a href="https://drive.google.com/" target="_blank" rel="noreferrer" className="btn btn--outline-dark">
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn btn--outline-dark">
           VIEW FULL MENU →
         </a>
-        <a href="#" className="btn btn--download" download>
+        <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn btn--download" download>
           ↓ DOWNLOAD FULL MENU (PDF)
         </a>
       </div>

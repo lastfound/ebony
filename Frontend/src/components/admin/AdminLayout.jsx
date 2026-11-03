@@ -207,7 +207,11 @@ export default function AdminLayout({ children }) {
       try {
         if (localStorage.getItem(key)) return;
 
-        const reg = await navigator.serviceWorker?.ready;
+        if (!('serviceWorker' in navigator)) { localStorage.setItem(key, '1'); return; }
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((resolve) => setTimeout(() => resolve(null), 800)),
+        ]);
         if (cancelled || !reg) { localStorage.setItem(key, '1'); return; }
 
         const existing = await reg.pushManager.getSubscription();

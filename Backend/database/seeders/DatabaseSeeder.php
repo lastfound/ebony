@@ -30,20 +30,61 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 2. Restaurant Tables
+        // 2. Restaurant Tables — sesuai sketsa tangan 2 lantai:
+        // L1: kiri Tangga+Bar, kanan tembok-luar isi Taman (atas) + Pintu (bawah).
+        // L2: kiri Toilet+Tangga, kanan area S penuh meja bulat.
         $tables = [
-            ['name' => 'Window 01', 'capacity' => 2, 'area' => 'Window'],
-            ['name' => 'Window 02', 'capacity' => 4, 'area' => 'Window'],
-            ['name' => 'Window 04', 'capacity' => 4, 'area' => 'Window'],
-            ['name' => 'Table 01',   'capacity' => 4, 'area' => 'Main Hall'],
-            ['name' => 'Table 02',   'capacity' => 6, 'area' => 'Main Hall'],
-            ['name' => 'Outdoor 01', 'capacity' => 4, 'area' => 'Terrace'],
-            ['name' => 'VIP Suite',  'capacity' => 12, 'area' => 'VIP Lounge'],
+            // Lantai 1 — Taman (dalam tembok, atas)
+            ['name' => 'L1-01', 'capacity' => 2, 'area' => 'Taman'],
+            ['name' => 'L1-02', 'capacity' => 2, 'area' => 'Taman'],
+            ['name' => 'L1-03', 'capacity' => 4, 'area' => 'Taman'],
+            ['name' => 'L1-04', 'capacity' => 4, 'area' => 'Taman'],
+            ['name' => 'L1-05', 'capacity' => 4, 'area' => 'Taman'],
+            // Lantai 1 — dekat Pintu (bawah)
+            ['name' => 'L1-06', 'capacity' => 4, 'area' => 'Indoor'],
+            ['name' => 'L1-07', 'capacity' => 4, 'area' => 'Indoor'],
+            ['name' => 'L1-08', 'capacity' => 2, 'area' => 'Indoor'],
+            ['name' => 'L1-09', 'capacity' => 6, 'area' => 'Indoor'],
+            // Lantai 1 — luar tembok (3 meja di luar garis)
+            ['name' => 'L1-10', 'capacity' => 4, 'area' => 'Luar Tembok'],
+            ['name' => 'L1-11', 'capacity' => 4, 'area' => 'Luar Tembok'],
+            ['name' => 'L1-12', 'capacity' => 2, 'area' => 'Luar Tembok'],
+            // Lantai 1 — nempel tembok (tambahan, sesuai koreksi)
+            ['name' => 'L1-13', 'capacity' => 2, 'area' => 'Taman'],
+            ['name' => 'L1-14', 'capacity' => 2, 'area' => 'Indoor'],
+            // Lantai 2 — kantong atas S (pinggir tembok, semua @2 kursi + bangku beton)
+            ['name' => 'L2-01', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-02', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-03', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-04', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-05', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-06', 'capacity' => 2, 'area' => 'Rooftop'],
+            // Lantai 2 — kantong bawah S (pinggir tembok, semua @2 kursi + bangku beton)
+            ['name' => 'L2-07', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-08', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-09', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-10', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-11', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-12', 'capacity' => 2, 'area' => 'Rooftop'],
+            // Lantai 2 — tambahan nempel tembok (koreksi: kurang meja di tembok)
+            ['name' => 'L2-13', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-14', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-15', 'capacity' => 2, 'area' => 'Rooftop'],
+            ['name' => 'L2-16', 'capacity' => 2, 'area' => 'Rooftop'],
         ];
 
         foreach ($tables as $tbl) {
             RestaurantTable::updateOrCreate(['name' => $tbl['name']], $tbl);
         }
+
+        // Bersihkan meja lama / tidak ada di lokasi asli (tidak ada VIP Suite).
+        RestaurantTable::whereIn('name', [
+            'Window 01', 'Window 02', 'Window 04',
+            'Table 01', 'Table 02', 'Outdoor 01', 'VIP Suite',
+            'IN-01', 'IN-02', 'IN-03', 'IN-04', 'IN-05', 'IN-06',
+            'OUT-01', 'OUT-02', 'OUT-03', 'OUT-04', 'OUT-05', 'OUT-06',
+            'TG-01', 'TG-02',
+        ])->delete();
 
         // 3. Menus (French-Asian Fusion)
         $menus = [
@@ -173,7 +214,7 @@ class DatabaseSeeder extends Seeder
         }
 
         // 5. Sample Reservations
-        $windowTable = RestaurantTable::where('name', 'Window 04')->first();
+        $windowTable = RestaurantTable::where('name', 'L1-03')->first();
 
         $reservation = Reservation::updateOrCreate(
             ['booking_number' => '8291'],

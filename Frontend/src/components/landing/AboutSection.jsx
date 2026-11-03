@@ -1,39 +1,56 @@
-const ABOUT_IMG = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
+import { useState, useEffect } from 'react';
+import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettings';
 
 export default function AboutSection() {
+  const [settings, setSettings] = useState(getLocalSiteSettings);
+
+  useEffect(() => {
+    let mounted = true;
+    getSiteSettings().then((data) => {
+      if (mounted && data) setSettings(data);
+    });
+
+    const handleUpdate = (e) => {
+      if (e.detail) setSettings(e.detail);
+    };
+    window.addEventListener('site-settings-updated', handleUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener('site-settings-updated', handleUpdate);
+    };
+  }, []);
+
+  const paragraphs = (settings.about_description || '')
+    .split('\n')
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   return (
     <section className="about" id="about">
       <div className="about__inner">
         {/* Text Content */}
         <div className="about__text-col" data-aos="fade-right">
           <span className="about__label">THE ESSENCE OF EBONY</span>
-          <h2 className="about__title">The Essence<br />of Ebony</h2>
+          <h2 className="about__title" style={{ whiteSpace: 'pre-line' }}>
+            {settings.about_title || 'The Essence of Ebony'}
+          </h2>
 
-          <p className="about__text">
-            Ebony is conceived as a sanctuary of culinary artistry, an escape from
-            the ordinary where every detail is meticulously curated. We believe
-            that true luxury lies in:
-          </p>
+          {settings.about_subtitle && (
+            <h3 className="about__subtitle">{settings.about_subtitle}</h3>
+          )}
 
-          <h3 className="about__subtitle">Simple Elegance</h3>
-          <p className="about__text">
-            ... stripping away the superfluous to reveal the profound and authentic
-            soul of our ingredients.
-          </p>
-
-          <p className="about__text">
-            Our philosophy is deeply rooted in our terroir. We journey across
-            seasons to source the finest produce, treating each element with
-            unwavering respect and innovative technique. It is a continuous
-            dialogue between cherished traditions and refined modernity.
-          </p>
-
-          <p className="about__text">
-            Step into our gallery, where the meticulously designed ambiance, the
-            unobtrusive service, and the exquisite, artful creations on your plate
-            merge into a singular, unforgettable narrative. Welcome to a space
-            where flavors tell stories.
-          </p>
+          {paragraphs.length > 0 ? (
+            paragraphs.map((para, idx) => (
+              <p key={idx} className="about__text">
+                {para}
+              </p>
+            ))
+          ) : (
+            <p className="about__text">
+              Ebony is conceived as a sanctuary of culinary artistry, an escape from
+              the ordinary where every detail is meticulously curated.
+            </p>
+          )}
 
           <a href="#menu" className="about__learn-more">
             LEARN MORE +
@@ -42,7 +59,14 @@ export default function AboutSection() {
 
         {/* Image */}
         <div className="about__image" data-aos="fade-left" data-aos-delay="200">
-          <img src={ABOUT_IMG} alt="Fine dining dish" />
+          <img
+            src={settings.about_image_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80'}
+            alt="Ebony Cafe & Gallery Culinary Art"
+            onError={(e) => {
+              // Fallback jika image gagal load
+              e.currentTarget.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
+            }}
+          />
         </div>
       </div>
     </section>

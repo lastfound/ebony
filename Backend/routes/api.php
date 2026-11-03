@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\MenuController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\SiteSettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\DashboardController;
 */
 
 // ===== 1. PUBLIK (Tanpa Auth) =====
+Route::get('/settings',          [SiteSettingController::class, 'publicIndex']);
 Route::get('/menus',             [MenuController::class, 'publicIndex']);
 Route::get('/events',            [EventController::class, 'publicIndex']);
 Route::get('/events/{id}',       [EventController::class, 'show']);
@@ -74,6 +76,10 @@ Route::get('/reservations',                [ReservationController::class, 'index
     Route::post('/events',         [EventController::class, 'store']);
     Route::put('/events/{id}',     [EventController::class, 'update']);
     Route::delete('/events/{id}',  [EventController::class, 'destroy']);
+
+    // Site Settings (Halaman Utama & Menu PDF)
+    Route::get('/settings',        [SiteSettingController::class, 'publicIndex']);
+    Route::post('/settings',       [SiteSettingController::class, 'update']);
 });
 
 // ===== 4. AI ENDPOINTS (Sesuai PRD) — rate limit 20 req/menit/IP agar biaya LLM tidak membengkak =====

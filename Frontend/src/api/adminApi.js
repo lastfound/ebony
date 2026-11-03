@@ -18,7 +18,7 @@ export const updateAdminProfile = async(data) => {
 
 /** === DASHBOARD === */
 export const getDashboardData = async() => {
-    const res = await api.get('/admin/dashboard');
+    const res = await api.get('/admin/dashboard', { timeout: 3500 });
     return res.data;
 };
 
