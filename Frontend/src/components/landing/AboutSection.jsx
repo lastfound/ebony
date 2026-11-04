@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettings';
 
+// Import aset gambar lokal
+import heroImg from '../../assets/ch.jfif';
+
 export default function AboutSection() {
   const [settings, setSettings] = useState(getLocalSiteSettings);
 
@@ -60,11 +63,11 @@ export default function AboutSection() {
         {/* Image */}
         <div className="about__image" data-aos="fade-left" data-aos-delay="200">
           <img
-            src={settings.about_image_url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80'}
+            src={heroImg}
             alt="Ebony Cafe & Gallery Culinary Art"
             onError={(e) => {
               // Fallback jika image gagal load
-              e.currentTarget.src = 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80';
+              e.currentTarget.src = heroImg;
             }}
           />
         </div>

@@ -27,26 +27,30 @@ export default function PromoSection() {
       });
   }, []);
 
+  // DIUBAH: Menggunakan timing yang lebih halus (250ms jeda di tengah transisi 0.5s)
   const changeSlide = useCallback((newIndex) => {
+    if (isAnimating) return;
     setIsAnimating(true);
+    
+    // Tunggu konten redup dulu, baru ganti index
     setTimeout(() => {
       setCurrentIndex(newIndex);
-      setIsAnimating(false);
-    }, 150);
-  }, []);
+      // Tunggu sebentar sebelum mengembalikan opacity agar transisi naik kembali dengan mulus
+      setTimeout(() => {
+        setIsAnimating(false);
+      }, 50);
+    }, 250);
+  }, [isAnimating]);
 
   useEffect(() => {
     if (promoData.length <= 1) return undefined;
     const timer = setInterval(() => {
       const nextIndex = currentIndex === promoData.length - 1 ? 0 : currentIndex + 1;
       changeSlide(nextIndex);
-    }, 3000);
+    }, 4000); // DIUBAH: Naikkan dari 3000ms ke 4000ms agar slide tidak terasa terlalu terburu-buru
     return () => clearInterval(timer);
   }, [currentIndex, promoData.length, changeSlide]);
 
-  // Tidak ada promo asli dari admin = section disembunyikan.
-  // (Dulu menampilkan promo khayalan "Signature Roast Duck 50% OFF"
-  //  yang tidak ada di database — sudah dibuang.)
   if (loaded && promoData.length === 0) return null;
 
   const displayData = promoData.length > 0 ? promoData : [
@@ -70,8 +74,9 @@ export default function PromoSection() {
         <div
           className="promo-content"
           style={{
-            opacity: isAnimating ? 0.1 : 1,
-            transition: 'opacity 0.2s ease'
+            opacity: isAnimating ? 0 : 1,
+            transform: isAnimating ? 'translateY(6px)' : 'translateY(0)',
+            transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out'
           }}
         >
           <span className="promo-badge">{displayData[safeIndex].promo_badge || 'MENU PROMOTION'}</span>
@@ -100,8 +105,9 @@ export default function PromoSection() {
             src={displayData[safeIndex].image_url || PROMO_FALLBACK_IMG}
             alt={displayData[safeIndex].name}
             style={{
-              opacity: isAnimating ? 0.2 : 1,
-              transition: 'opacity 0.2s ease'
+              opacity: isAnimating ? 0 : 1,
+              transform: isAnimating ? 'scale(0.98)' : 'scale(1)',
+              transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out'
             }}
             onError={(e) => {
               e.currentTarget.onerror = null;

@@ -1,30 +1,38 @@
+import gallery1 from '../../assets/gallery1.jpg';
+import gallery2 from '../../assets/gallery2.jpg';
+import gallery3 from '../../assets/gallery3.jpg';
+import gallery4 from '../../assets/gallery4.jpg';
+import gallery5 from '../../assets/gallery5.jpg';
+
+
 const GALLERY_IMAGES = [
   {
     id: 1,
-    src: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=800&q=80',
+    src: gallery1,
     alt: 'Ebony Cafe interior dining area',
   },
   {
     id: 2,
-    src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&q=80',
+    src: gallery2,
     alt: 'Restaurant ambiance',
   },
   {
     id: 3,
-    src: 'https://images.unsplash.com/photo-1428515613728-6b4607e44363?w=600&q=80',
+    src: gallery3,
     alt: 'Cafe gallery wall',
   },
   {
     id: 4,
-    src: 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?w=600&q=80',
+    src: gallery4,
     alt: 'Bar area',
   },
   {
     id: 5,
-    src: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600&q=80',
+    src: gallery5,
     alt: 'Private dining room',
   },
 ];
+
 
 export default function GallerySection() {
   return (
@@ -33,6 +41,7 @@ export default function GallerySection() {
         <span className="section-label">AN AUTHENTIC EXPERIENCE</span>
         <h2 className="section-title">An authentic experience</h2>
       </div>
+
 
       <div className="gallery__grid">
         {GALLERY_IMAGES.map((img, index) => (
@@ -44,3 +53,4 @@ export default function GallerySection() {
     </section>
   );
 }
+

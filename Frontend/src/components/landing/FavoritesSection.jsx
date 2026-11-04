@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { getMenuFavorites } from '../../api/publicApi';
-import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettings';
 import MenuCard from './MenuCard';
 import AOS from 'aos';
 
@@ -8,12 +7,17 @@ export default function FavoritesSection() {
   const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState(() => getLocalSiteSettings().menu_pdf_url || 'https://drive.google.com/');
+
+  // 1. Link Folder Google Drive (Untuk View Full Menu)
+  const folderDriveUrl = "https://drive.google.com/drive/folders/1gb8Bpddjg6qg6FJ18JC8udaQpLIc8Y4F?usp=share_link";
+
+  // 2. Link File PDF Makanan & Minuman (Untuk Download Direct)
+  const menuPdfUrl = "https://drive.google.com/file/d/1mc1GxRTcijTjhxtJIaCuVYPiNKd0tc-A/view?usp=sharing";
+  const spiritPdfUrl = "https://drive.google.com/file/d/14aIDAeIBA-jg4WkuGylgOunWJRxfSItf/view?usp=sharing";
 
   useEffect(() => {
     getMenuFavorites()
       .then((data) => {
-        // Tampilkan HANYA menu asli dari database
         setMenus(Array.isArray(data) ? data : []);
         setLoadFailed(false);
       })
@@ -22,17 +26,6 @@ export default function FavoritesSection() {
         setLoadFailed(true);
       })
       .finally(() => setLoading(false));
-
-    // Ambil URL PDF Menu yang dikonfigurasi admin
-    getSiteSettings().then((s) => {
-      if (s?.menu_pdf_url) setPdfUrl(s.menu_pdf_url);
-    });
-
-    const handleUpdate = (e) => {
-      if (e.detail?.menu_pdf_url) setPdfUrl(e.detail.menu_pdf_url);
-    };
-    window.addEventListener('site-settings-updated', handleUpdate);
-    return () => window.removeEventListener('site-settings-updated', handleUpdate);
   }, []);
 
   useEffect(() => {
@@ -71,11 +64,34 @@ export default function FavoritesSection() {
       )}
 
       <div className="favorites__actions">
-        <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn btn--outline-dark">
+        {/* Tombol View Full Menu (Membuka Folder Drive) */}
+        <a 
+          href={folderDriveUrl} 
+          target="_blank" 
+          rel="noreferrer" 
+          className="btn btn--outline-dark"
+        >
           VIEW FULL MENU →
         </a>
-        <a href={pdfUrl} target="_blank" rel="noreferrer" className="btn btn--download" download>
-          ↓ DOWNLOAD FULL MENU (PDF)
+
+        {/* Tombol Download Menu Makanan */}
+        <a 
+          href={menuPdfUrl} 
+          target="_blank" 
+          rel="noreferrer" 
+          className="btn btn--download"
+        >
+          ↓ FOOD MENU (PDF)
+        </a>
+
+        {/* Tombol Download Menu Minuman */}
+        <a 
+          href={spiritPdfUrl} 
+          target="_blank" 
+          rel="noreferrer" 
+          className="btn btn--download"
+        >
+          ↓ DRINKS MENU (PDF)
         </a>
       </div>
     </section>
