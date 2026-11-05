@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Video files (disarankan via CDN/cloud hosting)
+*.mp4

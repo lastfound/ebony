@@ -4,7 +4,6 @@ import gallery3 from '../../assets/gallery3.jpg';
 import gallery4 from '../../assets/gallery4.jpg';
 import gallery5 from '../../assets/gallery5.jpg';
 
-
 const GALLERY_IMAGES = [
   {
     id: 1,
@@ -33,7 +32,6 @@ const GALLERY_IMAGES = [
   },
 ];
 
-
 export default function GallerySection() {
   return (
     <section className="gallery" id="gallery">
@@ -42,15 +40,20 @@ export default function GallerySection() {
         <h2 className="section-title">An authentic experience</h2>
       </div>
 
-
       <div className="gallery__grid">
         {GALLERY_IMAGES.map((img, index) => (
           <div className="gallery__item" key={img.id} data-aos="fade-up" data-aos-delay={index * 100}>
-            <img src={img.src} alt={img.alt} loading="lazy" />
+            <img 
+              src={img.src} 
+              alt={img.alt} 
+              loading="lazy" 
+              width="400" 
+              height="300" 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           </div>
         ))}
       </div>
     </section>
   );
 }
-

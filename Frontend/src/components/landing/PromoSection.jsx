@@ -27,15 +27,12 @@ export default function PromoSection() {
       });
   }, []);
 
-  // DIUBAH: Menggunakan timing yang lebih halus (250ms jeda di tengah transisi 0.5s)
   const changeSlide = useCallback((newIndex) => {
     if (isAnimating) return;
     setIsAnimating(true);
     
-    // Tunggu konten redup dulu, baru ganti index
     setTimeout(() => {
       setCurrentIndex(newIndex);
-      // Tunggu sebentar sebelum mengembalikan opacity agar transisi naik kembali dengan mulus
       setTimeout(() => {
         setIsAnimating(false);
       }, 50);
@@ -47,7 +44,7 @@ export default function PromoSection() {
     const timer = setInterval(() => {
       const nextIndex = currentIndex === promoData.length - 1 ? 0 : currentIndex + 1;
       changeSlide(nextIndex);
-    }, 4000); // DIUBAH: Naikkan dari 3000ms ke 4000ms agar slide tidak terasa terlalu terburu-buru
+    }, 4000);
     return () => clearInterval(timer);
   }, [currentIndex, promoData.length, changeSlide]);
 
@@ -93,6 +90,9 @@ export default function PromoSection() {
                   key={index}
                   className={`promo-dot ${index === safeIndex ? 'promo-dot--active' : ''}`}
                   onClick={() => changeSlide(index)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Go to slide ${index + 1}`}
                 ></span>
               ))}
             </div>
@@ -104,6 +104,9 @@ export default function PromoSection() {
           <img
             src={displayData[safeIndex].image_url || PROMO_FALLBACK_IMG}
             alt={displayData[safeIndex].name}
+            loading="lazy"
+            width="500"
+            height="400"
             style={{
               opacity: isAnimating ? 0 : 1,
               transform: isAnimating ? 'scale(0.98)' : 'scale(1)',

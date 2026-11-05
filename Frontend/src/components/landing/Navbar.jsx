@@ -35,7 +35,7 @@ export default function Navbar() {
       {/* Logo */}
       <div className="navbar__logo">
         <a href="/">
-          <img src="/assets/images/logo-ebony.png" alt="EBONY" className="navbar__logo-img" />
+          <img src="/assets/images/logo-ebony.png" alt="EBONY" className="navbar__logo-img" width="160" height="48" />
         </a>
       </div>
 

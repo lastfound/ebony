@@ -25,6 +25,8 @@ export default function EventCard({ event }) {
           src={event.image_url}
           alt={event.title}
           className="event-card__img-main"
+          width="400"
+          height="240"
           loading="lazy"
           onError={(e) => {
             e.currentTarget.onerror = null;
@@ -38,7 +40,9 @@ export default function EventCard({ event }) {
         <span className="event-card__time">🕐 {timePart}{endPart}</span>
         <h3 className="event-card__title">{event.title}</h3>
         <p className="event-card__desc">{event.description}</p>
-        <Link to={`/events/${event.id}`} className="btn btn--link">VIEW DETAILS →</Link>
+        <Link to={`/events/${event.id}`} className="btn btn--link" aria-label={`View details for ${event.title}`}>
+          VIEW DETAILS →
+        </Link>
       </div>
     </div>
   );

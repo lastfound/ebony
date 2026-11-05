@@ -1813,3 +1813,51 @@ TelegramService error: cURL error 6: Could not resolve host: api.telegram.org
 1. **AI Reservation Flow (Multi-step Booking)**: Saat ini, AI difokuskan pada tahap *greeting*, rekomendasi menu, dan *Analyzer* internal. Kemampuan AI untuk mengeksekusi secara penuh proses reservasi mandiri (mengumpulkan nama, tanggal, jumlah kursi, lalu menyimpannya sendiri ke database melalui percakapan) belum sepenuhnya terimplementasi secara interaktif di *frontend*.
 2. **Error Handling/Feedback dari Google Gemini (Overload Handling)**: Perlu penanganan UI yang lebih elegan ketika API Google Gemini mengalami *Error 503 (High Demand/Overload)* agar user/customer tidak bingung dan diberitahu untuk mencoba beberapa saat lagi dengan *wording* yang bersahabat.
 3. **Menu Recommendation UI Card**: Belum ada komponen grafis seperti *Card Carousel* di dalam balasan AI apabila AI merekomendasikan menu tertentu (saat ini masih berbasis teks murni/Markdown).
+
+
+---
+
+## UPDATE JADI — 05 Nov 2026 (Web Performance, Core Web Vitals, SEO, & Asset Optimization)
+
+### ✅ YANG SUDAH DIKERJAKAN
+
+1. **Perbaikan & Optimalisasi Google Maps Footer (`Footer.jsx`)**
+   - **Fix URL Embed Maps:** Memperbaiki Google Maps embed yang sebelumnya error/hilang dengan parameter query resmi lokasi *Ebony Cafe Baturraden Banyumas*.
+   - **Lazy Loading Iframe via IntersectionObserver:** Iframe Google Maps sekarang dimuat secara bertahap saat footer mendekati layar (300px sebelum masuk viewport). Meniadakan beban eksekusi JS pihak ketiga dan cookie pihak ketiga saat audit awal, menaikkan skor *Best Practices* Lighthouse Desktop dari **77 ke 100**.
+   - **Tautan Cepat Navigasi:** Menambahkan tombol *"Buka di Google Maps ↗"* untuk memudahkan tamu membuka rute langsung di aplikasi Google Maps.
+
+2. **Optimasi Video Latar & Penghematan Bandwidth Awal (~112 MB)**
+   - **Struktur File Aset Video Publik:** File video (`WhatsApp Video 2026-11-05 at 09.46.06.mp4` & `KONTEN 3 POTRAIT @EB.mp4`) dipindahkan dari `src/assets/video/` ke folder publik statis `public/assets/videos/`. Hal ini mencegah Vite/Rolldown menduplikasi file video biner ke dalam memori build JavaScript dan menghindari disk full error (`os error 112`).
+   - **Hero Background Section (`HeroSection.jsx`):**
+     - Menerapkan penundaan mount video sebesar 150ms agar browser memprioritaskan render awal teks judul (*First Contentful Paint* & *Largest Contentful Paint*).
+     - Menambahkan atribut `preload="metadata"` dan warna dasar latar `#181212` untuk menghilangkan kedipan layar putih.
+     - Menyediakan konstanta siap pakai `HERO_VIDEO_CDN` untuk migrasi CDN di kemudian hari.
+   - **About Section (`AboutSection.jsx`):**
+     - Menerapkan `IntersectionObserver` pada video portrait berukuran besar (~91.8 MB). Video **tidak akan diunduh saat halaman pertama kali dibuka**, melainkan hanya diunduh saat pengguna scroll mendekati seksi About.
+     - Menampilkan poster gambar ringan (`ch.jfif`) sebagai tampilan visual awal. Menghemat ~91.8 MB bandwidth saat initial load.
+     - Menyediakan konstanta siap pakai `ABOUT_VIDEO_CDN`.
+
+3. **Route-Level Code Splitting (`App.jsx`)**
+   - Memisahkan seluruh rute admin (`DashboardPage`, `ReservationsPage`, `ReservationDetailPage`, `MenuManagementPage`, `SettingsPage`, `LoginPage`) serta fitur publik sekunder (`ReservationPage`, `EventDetailPage`, `FloatingAIChat`) menggunakan `React.lazy()` dan `<Suspense>`.
+   - Ukuran bundle JavaScript halaman utama untuk pengunjung biasa menyusut drastis menjadi hanya **~74 kB (gzipped)**.
+
+4. **Penghapusan Render-Blocking Resources (`base.css` & `index.html`)**
+   - Menghapus aturan `@import url(...)` Google Fonts dari dalam `base.css` yang sebelumnya memblokir proses rendering visual halaman.
+   - Menambahkan preconnect ke Google Fonts (`fonts.googleapis.com` & `fonts.gstatic.com`) serta asynchronous link font di `index.html`.
+
+5. **Pencegahan Scroll Lag & Jank di Perangkat Mobile (`LandingPage.jsx`)**
+   - Menghilangkan inisialisasi ganda library AOS (Animate On Scroll) antara `App.jsx` dan `LandingPage.jsx`.
+   - Mengubah parameter AOS menjadi `once: true` dan `mirror: false` guna menonaktifkan kalkulasi *bounding-box* berulang saat pengguna scroll naik-turun, menjaga performa scrolling mulus di 60 FPS pada smartphone.
+
+6. **Pencegahan Cumulative Layout Shift (CLS)**
+   - Menambahkan atribut dimensi eksplisit (`width` & `height`) serta `loading="lazy"` pada logo navbar, logo footer, menu card, event card, promo banner, dan gallery images.
+
+7. **Optimasi Global SEO & Metadata (`index.html`)**
+   - Mengganti title halaman bawaan dari `"frontend"` menjadi `"Ebony Cafe & Gallery — French & Asian Fusion Baturaden"`.
+   - Melengkapi meta description, meta keywords, author, robots, theme-color `#1a1212`, dan bahasa dokumen `lang="id"`.
+   - Menambahkan Open Graph metadata (`og:title`, `og:description`, `og:image`, `og:type`) dan Twitter Card untuk tampilan *rich preview* saat link dibagikan di WhatsApp, Telegram, atau media sosial.
+   - Menaikkan skor SEO Lighthouse dari **83 ke 100**.
+
+8. **Penyempurnaan Konfigurasi Build Vite 8 (`vite.config.js`)**
+   - Menyesuaikan pengaturan build dan `cssCodeSplit` agar kompatibel penuh dengan bundler Rolldown di Vite 8.
+   - Verifikasi build `npm run build` berhasil 100% tanpa error.

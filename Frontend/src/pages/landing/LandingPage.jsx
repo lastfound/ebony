@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import AOS from 'aos';
-import 'aos/dist/aos.css'; // 🌟 PENTING: Wajib di-import agar animasinya berfungsi!
+import 'aos/dist/aos.css';
 import Navbar from '../../components/landing/Navbar';
 import HeroSection from '../../components/landing/HeroSection';
 import AboutSection from '../../components/landing/AboutSection';
@@ -12,14 +12,14 @@ import Footer from '../../components/landing/Footer';
 
 export default function LandingPage() {
   useEffect(() => {
-    // 🌟 Menginisialisasi AOS secara mendalam dengan konfigurasi durasi
+    // 🌟 Inisialisasi AOS yang ringan & hemat performa (tidak bikin lag saat di-scroll)
     AOS.init({
-      duration: 1000, // Kecepatan munculnya 1 detik agar halus
-      once: false,    // Set ke false jika ingin animasi muncul terus tiap kali di-scroll naik-turun
-      mirror: true    // Memicu animasi kembali saat di-scroll ke atas
+      duration: 700,
+      once: true,      // Cukup animasi 1x saat pertama terlihat (menghilangkan lag & jank pada mobile)
+      mirror: false,   // Jangan hitung ulang animasi saat scroll naik untuk menjaga 60 FPS
+      offset: 50,
+      easing: 'ease-out-cubic',
     });
-    
-    AOS.refreshHard();
   }, []);
 
   return (

@@ -5,6 +5,8 @@ export default function MenuCard({ menu }) {
         <img
           src={menu.image_url}
           alt={menu.name}
+          width="360"
+          height="360"
           loading="lazy"
           onError={(e) => {
             e.currentTarget.onerror = null;

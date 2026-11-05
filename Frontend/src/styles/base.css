@@ -3,7 +3,7 @@
    ============================================ */
 
 /* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&display=swap');
+/* font loaded in index.html */
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -17,8 +17,16 @@ html {
   overscroll-behavior: none; /* Prevent bounce effect */
 }
 
+/* Sembunyikan scrollbar (lebar 0) tapi halaman tetap bisa di-scroll */
+html, body {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 0px;
+  height: 0px;
+  display: none; /* Chrome, Safari, Opera */
 }
 
 ::-webkit-scrollbar-track {

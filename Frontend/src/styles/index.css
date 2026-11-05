@@ -465,11 +465,13 @@
     position: relative;
 }
 
-.about__image img {
+.about__image img,
+.about__image video {
     width: 100%;
     border-radius: var(--radius-md);
     aspect-ratio: 4/5;
     object-fit: cover;
+    display: block;
 }
 
 @media (max-width: 768px) {
