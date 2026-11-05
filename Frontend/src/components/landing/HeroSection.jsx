@@ -15,10 +15,11 @@ export default function HeroSection() {
 
   useEffect(() => {
     // 🌟 Mengizinkan browser menyelesaikan First Contentful Paint (FCP) & LCP teks terlebih dahulu
-    // sebelum memulai streaming video latar belakang yang berat
+    // sebelum memulai streaming video latar belakang yang berat.
+    // Delay 300ms memastikan teks hero sudah tampil sebelum browser request video.
     const timer = setTimeout(() => {
       setIsVideoLoaded(true);
-    }, 150);
+    }, 300);
     return () => clearTimeout(timer);
   }, []);
 
@@ -48,7 +49,7 @@ export default function HeroSection() {
             loop
             muted
             playsInline
-            preload="metadata"
+            preload="none"
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}

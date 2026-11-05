@@ -54,6 +54,7 @@ module.exports = {
 
 | Elemen | Size | Weight | Font |
 |--------|------|--------|------|
+
 | Hero Title | `clamp(36px, 5vw, 64px)` | 700 | Serif |
 | Section Title (h2) | `clamp(28px, 3vw, 42px)` | 600 | Serif |
 | Dashboard Page Title | `36–42px` | 400 | Serif |

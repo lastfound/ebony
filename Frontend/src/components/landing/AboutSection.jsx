@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettings';
-import fallbackPoster from '../../assets/ch.jfif';
 
 // 🌟 VIDEO SOURCE:
 // 1. Masukkan link CDN di bawah ini jika sudah diunggah (misal: Cloudinary, S3, BunnyCDN, dll).
 // 2. Jika dibiarkan kosong (''), otomatis memakai video lokal dari folder public.
 const ABOUT_VIDEO_CDN = '';
 const DEFAULT_ABOUT_VIDEO = '/assets/videos/KONTEN 3 POTRAIT @EB.mp4';
+
+// 🌟 PERFORMANCE: Poster dari public folder (tidak di-bundle Vite)
+const ABOUT_VIDEO_POSTER = '/assets/images/ch.jfif';
 
 export default function AboutSection() {
   const [settings, setSettings] = useState(getLocalSiteSettings);
@@ -95,8 +97,8 @@ export default function AboutSection() {
             loop
             muted
             playsInline
-            preload="metadata"
-            poster={fallbackPoster}
+            preload="none"
+            poster={ABOUT_VIDEO_POSTER}
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         </div>

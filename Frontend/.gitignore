@@ -24,5 +24,6 @@ dist-ssr
 *.sw?
 
 
-# Video files (disarankan via CDN/cloud hosting)
-*.mp4
+# Media assets kept local for development
+public/assets/images/
+public/assets/videos/

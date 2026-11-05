@@ -1,33 +1,30 @@
-import gallery1 from '../../assets/gallery1.jpg';
-import gallery2 from '../../assets/gallery2.jpg';
-import gallery3 from '../../assets/gallery3.jpg';
-import gallery4 from '../../assets/gallery4.jpg';
-import gallery5 from '../../assets/gallery5.jpg';
-
+// 🌟 PERFORMANCE: Gambar gallery diakses dari /public/assets/images/gallery/
+// sehingga tidak masuk ke bundle Vite (menghemat ~2.1 MB dari JS bundle).
+// Vite TIDAK akan memproses/encode file di folder public — langsung serve as-is.
 const GALLERY_IMAGES = [
   {
     id: 1,
-    src: gallery1,
+    src: '/assets/images/gallery/gallery1.jpg',
     alt: 'Ebony Cafe interior dining area',
   },
   {
     id: 2,
-    src: gallery2,
-    alt: 'Restaurant ambiance',
+    src: '/assets/images/gallery/gallery2.jpg',
+    alt: 'Restaurant ambiance at Ebony',
   },
   {
     id: 3,
-    src: gallery3,
+    src: '/assets/images/gallery/gallery3.jpg',
     alt: 'Cafe gallery wall',
   },
   {
     id: 4,
-    src: gallery4,
-    alt: 'Bar area',
+    src: '/assets/images/gallery/gallery4.jpg',
+    alt: 'Bar area at Ebony',
   },
   {
     id: 5,
-    src: gallery5,
+    src: '/assets/images/gallery/gallery5.jpg',
     alt: 'Private dining room',
   },
 ];
@@ -43,12 +40,13 @@ export default function GallerySection() {
       <div className="gallery__grid">
         {GALLERY_IMAGES.map((img, index) => (
           <div className="gallery__item" key={img.id} data-aos="fade-up" data-aos-delay={index * 100}>
-            <img 
-              src={img.src} 
-              alt={img.alt} 
-              loading="lazy" 
-              width="400" 
-              height="300" 
+            <img
+              src={img.src}
+              alt={img.alt}
+              loading="lazy"
+              decoding="async"
+              width="400"
+              height="300"
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           </div>
