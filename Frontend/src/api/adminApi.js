@@ -159,3 +159,39 @@ export const deleteEvent = async(id) => {
     const res = await api.delete(`/admin/events/${id}`);
     return res.data;
 };
+
+/** === GALLERIES === */
+export const getAdminGalleries = async() => {
+    const res = await api.get('/admin/galleries');
+    if (res.data && res.data.data) {
+        return res.data.data;
+    }
+    return res.data || [];
+};
+
+export const createGallery = async(data) => {
+    const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    const res = await api.post('/admin/galleries', data, { headers });
+    return res.data;
+};
+
+export const updateGallery = async(id, data) => {
+    const headers = data instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {};
+    if (data instanceof FormData) {
+        data.append('_method', 'PUT');
+        const res = await api.post(`/admin/galleries/${id}`, data, { headers });
+        return res.data;
+    }
+    const res = await api.put(`/admin/galleries/${id}`, data);
+    return res.data;
+};
+
+export const deleteGallery = async(id) => {
+    const res = await api.delete(`/admin/galleries/${id}`);
+    return res.data;
+};
+
+export const toggleGalleryStatus = async(id) => {
+    const res = await api.patch(`/admin/galleries/${id}/toggle`);
+    return res.data;
+};

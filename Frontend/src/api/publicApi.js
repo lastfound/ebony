@@ -12,6 +12,12 @@ export const getEvents = async () => {
   return res.data?.data || res.data || [];
 };
 
+/** Ambil semua foto galeri aktif */
+export const getGalleries = async () => {
+  const res = await api.get('/galleries');
+  return res.data?.data || res.data || [];
+};
+
 /** Ambil menu promo untuk banner landing page */
 export const getPromoMenus = async () => {
   const res = await api.get('/menus');

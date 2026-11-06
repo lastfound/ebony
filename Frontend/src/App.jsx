@@ -54,6 +54,7 @@ export default function App() {
               <Route path="reservations" element={<ReservationsPage />} />
               <Route path="reservations/:id" element={<ReservationDetailPage />} />
               <Route path="menu-management" element={<MenuManagementPage />} />
+              <Route path="gallery" element={<MenuManagementPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>

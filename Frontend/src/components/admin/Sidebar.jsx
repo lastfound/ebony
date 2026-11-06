@@ -5,7 +5,8 @@ import { adminLogout } from '../../api/adminApi';
 const navItems = [
   { to: '/admin/dashboard', icon: '⊞', label: 'DASHBOARD' },
   { to: '/admin/reservations', icon: '📅', label: 'RESERVATIONS' },
-  { to: '/admin/menu-management', icon: '✕', label: 'MENU MANAGEMENT' },
+  { to: '/admin/menu-management', icon: '🍴', label: 'MENU & EVENTS' },
+  { to: '/admin/gallery', icon: '🖼', label: 'GALLERY' },
 ];
 
 export default function Sidebar({ unreadCount = 0, onClearUnread }) {

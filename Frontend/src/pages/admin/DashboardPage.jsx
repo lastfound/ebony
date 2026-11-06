@@ -200,12 +200,15 @@ export default function DashboardPage() {
             <span style={{ fontSize: '12px', color: 'var(--color-muted, #666666)' }}>Kelola reservasi tamu, penyesuaian menu kuliner, atau tautan menu PDF</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <Link to="/admin/reservations" className="btn btn--outline-dark btn--sm">
             📅 Cek Reservasi
           </Link>
           <Link to="/admin/menu-management" className="btn btn--outline-dark btn--sm">
             🍴 Kelola Menu &amp; PDF
+          </Link>
+          <Link to="/admin/gallery" className="btn btn--outline-dark btn--sm">
+            🖼 Kelola Galeri
           </Link>
           <Link to="/admin/settings" className="btn btn--outline-dark btn--sm">
             ⚙ Konten Web

@@ -81,7 +81,7 @@ export default function Footer() {
         <div>
           <p className="footer__col-title">FIND US</p>
           <div className="footer__col-text">
-            <span style={{ display: 'block', lineHeight: 1.6 }}>JL Raya Baturaden, Km. 10, Karang Mangu, Baturaden, Dusun III, Kabupaten Banyumas, Jawa Tengah 53151</span>
+            <span style={{ display: 'block', lineHeight: 1.6 }}>Jl. Raya Baturaden No.Km 8, Dusun III, Karangtengah, Kec. Baturaden, Kabupaten Banyumas, Jawa Tengah 53141</span>
             
             {/* Embed Google Maps dengan Lazy Loading */}
             <div style={{ marginTop: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid rgba(255, 255, 255, 0.12)', minHeight: '150px', background: '#221a1a' }}>

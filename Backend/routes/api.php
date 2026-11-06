@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\SiteSettingController;
+use App\Http\Controllers\Api\GalleryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +21,7 @@ Route::get('/settings',          [SiteSettingController::class, 'publicIndex']);
 Route::get('/menus',             [MenuController::class, 'publicIndex']);
 Route::get('/events',            [EventController::class, 'publicIndex']);
 Route::get('/events/{id}',       [EventController::class, 'show']);
+Route::get('/galleries',         [GalleryController::class, 'publicIndex']);
 Route::post('/reservations',     [ReservationController::class, 'store']);
 Route::get('/tables',            [\App\Http\Controllers\Api\RestaurantTableController::class, 'index']);
 Route::get('/tables/available',  [\App\Http\Controllers\Api\RestaurantTableController::class, 'available']);
@@ -77,6 +79,13 @@ Route::get('/reservations',                [ReservationController::class, 'index
     Route::post('/events',         [EventController::class, 'store']);
     Route::put('/events/{id}',     [EventController::class, 'update']);
     Route::delete('/events/{id}',  [EventController::class, 'destroy']);
+
+    // Galleries
+    Route::get('/galleries',                   [GalleryController::class, 'index']);
+    Route::post('/galleries',                  [GalleryController::class, 'store']);
+    Route::put('/galleries/{id}',              [GalleryController::class, 'update']);
+    Route::delete('/galleries/{id}',           [GalleryController::class, 'destroy']);
+    Route::patch('/galleries/{id}/toggle',     [GalleryController::class, 'toggleStatus']);
 
     // Site Settings (Halaman Utama & Menu PDF)
     Route::get('/settings',        [SiteSettingController::class, 'publicIndex']);
