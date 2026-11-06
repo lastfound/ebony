@@ -37,7 +37,7 @@ class RestaurantTableController extends Controller
         $validated = $request->validate([
             'date' => 'required|date',
             'time' => 'required|string|min:2|max:8',
-            'party_size' => 'nullable|integer|min:1|max:100',
+            'party_size' => 'nullable|integer|min:1',
             'exclude_reservation_id' => 'nullable|integer|exists:reservations,id',
         ]);
 

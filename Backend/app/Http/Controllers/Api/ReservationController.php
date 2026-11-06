@@ -25,7 +25,7 @@ class ReservationController extends Controller
             'email' => 'required|email|max:255',
             'date' => 'required|date|after_or_equal:today',
             'time' => 'required|string',
-            'party_size' => 'required|integer|min:1|max:100',
+            'party_size' => 'required|integer|min:1',
             'table_id' => 'nullable|integer|exists:restaurant_tables,id',
             'occasion' => 'nullable|string|max:255',
             'dietary_notes' => 'nullable|string|max:1000',
@@ -50,19 +50,6 @@ class ReservationController extends Controller
                     ),
                 ], 422);
             }
-        }
-
-        // Quota check: maksimal 25 tamu per slot waktu yang sama di tanggal tersebut
-        $currentBookedGuests = Reservation::where('date', $validated['date'])
-            ->where('time', 'like', substr($validated['time'], 0, 2).'%')
-            ->where('status', '!=', 'cancelled')
-            ->sum('party_size');
-
-        $maxCapacityPerSlot = 25;
-        if (($currentBookedGuests + $validated['party_size']) > $maxCapacityPerSlot) {
-            return response()->json([
-                'message' => 'Maaf, kuota reservasi pada waktu tersebut sudah penuh.',
-            ], 422);
         }
 
         // Generate unique 4-digit booking number
@@ -301,7 +288,7 @@ class ReservationController extends Controller
             'email' => 'sometimes|required|email|max:255',
             'date' => 'sometimes|required|date',
             'time' => 'sometimes|required',
-            'party_size' => 'sometimes|required|integer|min:1|max:100',
+            'party_size' => 'sometimes|required|integer|min:1',
             'table_id' => 'nullable|integer|exists:restaurant_tables,id',
             'occasion' => 'nullable|string|max:255',
             'dietary_notes' => 'nullable|string',

@@ -384,16 +384,6 @@ KNOWLEDGE;
             return ['created' => true, 'booking_number' => $existing->booking_number, 'duplicate' => true];
         }
 
-        // Quota: maksimal 25 tamu per slot waktu (sama seperti reservasi manual)
-        $currentBookedGuests = \App\Models\Reservation::where('date', $date)
-            ->where('time', 'like', substr($time, 0, 2) . '%')
-            ->where('status', '!=', 'cancelled')
-            ->sum('party_size');
-
-        if (($currentBookedGuests + $partySize) > 25) {
-            return ['created' => false, 'slot_full' => true];
-        }
-
         // Pilih meja kosong yang paling pas (area pilihan tamu didahulukan).
         // Kalau semua meja yang muat sudah terisi (termasuk via WA/offline),
         // JANGAN simpan reservasi — kembalikan info agar AI menawarkan alternatif.

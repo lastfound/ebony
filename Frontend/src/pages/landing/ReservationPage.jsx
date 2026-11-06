@@ -120,7 +120,7 @@ export default function ReservationPage() {
     if (!form.date) errs.date = 'Pilih tanggal reservasi';
     if (isMonday) errs.date = 'Maaf, Ebony Cafe tutup pada hari Senin';
     if (!form.selectedHour) errs.time = 'Pilih jam reservasi';
-    if (form.party_size < 1 || form.party_size > 100) errs.party_size = 'Jumlah tamu 1–100 orang';
+    if (form.party_size < 1) errs.party_size = 'Jumlah tamu minimal 1 orang';
     if (form.occasion === 'Other' && !form.customOccasion.trim()) {
       errs.occasion = 'Sebutkan jenis acara Anda';
     }
@@ -344,7 +344,6 @@ export default function ReservationPage() {
                 onChange={handleChange}
                 error={errors.party_size}
                 min={1}
-                max={100}
                 required
               />
 

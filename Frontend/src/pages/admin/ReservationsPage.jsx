@@ -363,7 +363,7 @@ export default function ReservationsPage() {
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Party Size *</label>
-                  <input type="number" name="party_size" className="form-input" min="1" max="100" placeholder="e.g. 2" required />
+                  <input type="number" name="party_size" className="form-input" min="1" placeholder="e.g. 2" required />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Occasion</label>

@@ -5,10 +5,7 @@ import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettin
 // 1. Masukkan link CDN di bawah ini jika sudah diunggah (misal: Cloudinary, S3, BunnyCDN, dll).
 // 2. Jika dibiarkan kosong (''), otomatis memakai video lokal dari folder public.
 const ABOUT_VIDEO_CDN = '';
-const DEFAULT_ABOUT_VIDEO = '/assets/videos/KONTEN 3 POTRAIT @EB.mp4';
-
-// 🌟 PERFORMANCE: Poster dari public folder (tidak di-bundle Vite)
-const ABOUT_VIDEO_POSTER = '/assets/images/ch.jfif';
+const DEFAULT_ABOUT_VIDEO = '/assets/videos/aboutvid.mp4';
 
 export default function AboutSection() {
   const [settings, setSettings] = useState(getLocalSiteSettings);
@@ -45,7 +42,7 @@ export default function AboutSection() {
     return () => observer.disconnect();
   }, []);
 
-  const activeVideo = ABOUT_VIDEO_CDN || settings.about_video_url || DEFAULT_ABOUT_VIDEO;
+  const activeVideo = settings.about_video_url || ABOUT_VIDEO_CDN || DEFAULT_ABOUT_VIDEO;
 
   const paragraphs = (settings.about_description || '')
     .split('\n')
@@ -85,16 +82,15 @@ export default function AboutSection() {
         </div>
 
         {/* Video / Media */}
-        <div className="about__image" data-aos="fade-left" data-aos-delay="150">
+        <div className="about__image" data-aos="fade-left" data-aos-delay="150" style={{ background: '#181212', borderRadius: '16px', overflow: 'hidden' }}>
           <video
-            src={shouldLoadVideo ? activeVideo : undefined}
-            autoPlay={shouldLoadVideo}
+            src={activeVideo}
+            autoPlay
             loop
             muted
             playsInline
-            preload="none"
-            poster={ABOUT_VIDEO_POSTER}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            preload="metadata"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         </div>
       </div>
