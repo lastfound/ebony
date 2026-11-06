@@ -26,4 +26,4 @@ dist-ssr
 
 # Media assets kept local for development
 public/assets/images/
-public/assets/videos/
+!public/assets/videos/background.mp4
