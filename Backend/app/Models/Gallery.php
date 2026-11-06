@@ -40,3 +40,4 @@ class Gallery extends Model
         return url('storage/' . ltrim($value, '/'));
     }
 }
+

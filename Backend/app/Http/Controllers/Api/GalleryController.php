@@ -166,3 +166,4 @@ class GalleryController extends Controller
         ]);
     }
 }
+

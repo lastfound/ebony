@@ -94,3 +94,4 @@ export default function GalleryAdminCard({ gallery, onToggle, onEdit, onDelete }
     </div>
   );
 }
+
