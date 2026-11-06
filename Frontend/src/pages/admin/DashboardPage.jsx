@@ -182,24 +182,25 @@ export default function DashboardPage() {
       {/* QUICK SHORTCUTS UNTUK MEMPERMUDAH ADMIN */}
       <div style={{
         margin: '28px 0',
-        padding: '16px 20px',
-        background: 'var(--color-sidebar)',
+        padding: '18px 24px',
+        background: 'var(--color-card, #ffffff)',
         border: '1px solid var(--color-border)',
-        borderRadius: '8px',
+        borderRadius: 'var(--radius-lg, 16px)',
+        boxShadow: 'var(--shadow-card, 0 2px 12px rgba(0,0,0,0.04))',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
         gap: '12px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <span style={{ fontSize: '1.4rem' }}>⚡</span>
           <div>
-            <strong style={{ fontSize: '14px', display: 'block' }}>Akses Cepat Pengelolaan</strong>
-            <span style={{ fontSize: '12px', color: 'var(--color-muted)' }}>Kelola reservasi tamu, penyesuaian menu kuliner, atau tautan menu PDF</span>
+            <strong style={{ fontSize: '14px', display: 'block', color: 'var(--color-text, #1a1a1a)' }}>Akses Cepat Pengelolaan</strong>
+            <span style={{ fontSize: '12px', color: 'var(--color-muted, #666666)' }}>Kelola reservasi tamu, penyesuaian menu kuliner, atau tautan menu PDF</span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
           <Link to="/admin/reservations" className="btn btn--outline-dark btn--sm">
             📅 Cek Reservasi
           </Link>

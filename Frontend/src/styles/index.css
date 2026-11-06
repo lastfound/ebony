@@ -1456,7 +1456,7 @@
 }
 
 .reservation-row:hover {
-    background: var(--color-sidebar);
+    background: #faf7f2;
 }
 
 .row-label {
