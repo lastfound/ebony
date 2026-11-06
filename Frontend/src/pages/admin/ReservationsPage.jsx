@@ -186,7 +186,7 @@ export default function ReservationsPage() {
               onClick={() => navigate(`/admin/reservations/${r.id}`)}
               style={{ 
                 display: 'grid', 
-                gridTemplateColumns: '1.2fr 1.5fr 1fr 1fr 1fr 0.5fr', 
+                gridTemplateColumns: '1.4fr 1.8fr 1.2fr 1.2fr 0.6fr', 
                 alignItems: 'center',
                 backgroundColor: '#ffffff',
                 padding: '20px 24px',
@@ -226,15 +226,6 @@ export default function ReservationsPage() {
                 </span>
                 <span style={{ fontSize: '0.9rem', color: '#4a4a4a', fontWeight: 500 }}>
                   👥 {r.party_size} Guests
-                </span>
-              </div>
-
-              <div>
-                <span style={{ display: 'block', fontSize: '0.7rem', color: '#a08c5b', fontWeight: 600, letterSpacing: '1px', marginBottom: '4px' }}>
-                  TABLE
-                </span>
-                <span style={{ fontSize: '0.9rem', color: '#4a4a4a', fontWeight: 500 }}>
-                  🪑 {r.table_name || 'Unassigned'}
                 </span>
               </div>
 
