@@ -13,7 +13,8 @@ class MenuController extends Controller
     {
         $query = Menu::where('is_available', true);
 
-        if ($request->boolean('featured')) {
+        // Hanya tampilkan yang Best Seller (featured)
+        if ($request->boolean('featured') || $request->has('featured')) {
             $query->where('is_featured', true);
         }
 
@@ -21,8 +22,11 @@ class MenuController extends Controller
             $query->where('category', $request->category);
         }
 
+        // Batasi maksimal 6 menu untuk halaman depan
+        $limit = $request->input('limit', 6);
         $menus = $query->orderBy('is_featured', 'desc')
-                       ->orderBy('id', 'asc')
+                       ->orderBy('id', 'desc')
+                       ->limit((int)$limit)
                        ->get();
 
         return response()->json($menus);
@@ -112,6 +116,16 @@ class MenuController extends Controller
             $validated['image_url'] = $path;
         }
 
+        if ($request->has('is_featured')) {
+            $isF = $request->input('is_featured');
+            $validated['is_featured'] = ($isF === '1' || $isF === 1 || $isF === true || $isF === 'true');
+        }
+
+        if ($request->has('is_available')) {
+            $isA = $request->input('is_available');
+            $validated['is_available'] = ($isA === '1' || $isA === 1 || $isA === true || $isA === 'true');
+        }
+
         $validated['is_promo'] = $request->input('is_promo', 0);
 
         $menu->update($validated);
@@ -139,8 +153,21 @@ class MenuController extends Controller
         $menu->save();
 
         return response()->json([
-            'message' => 'Status menu berhasil diubah',
+            'message' => 'Status ketersediaan menu berhasil diubah',
             'is_available' => $menu->is_available,
+            'data' => $menu,
+        ]);
+    }
+
+    public function toggleFeatured($id)
+    {
+        $menu = Menu::findOrFail($id);
+        $menu->is_featured = !$menu->is_featured;
+        $menu->save();
+
+        return response()->json([
+            'message' => 'Status Best Seller berhasil diubah',
+            'is_featured' => (bool)$menu->is_featured,
             'data' => $menu,
         ]);
     }

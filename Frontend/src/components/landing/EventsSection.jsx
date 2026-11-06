@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getEvents } from '../../api/publicApi';
 import EventCard from './EventCard';
 import AOS from 'aos';
@@ -44,22 +44,35 @@ const getDefaultEvents = () => {
 
 export default function EventsSection() {
   const [events, setEvents] = useState(getDefaultEvents);
+  const sectionRef = useRef(null);
 
   useEffect(() => {
-    getEvents()
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setEvents(data);
-        } else if (Array.isArray(data) && data.length === 0) {
-          // Jika server database aktif tapi event memang belum diinput admin
-          setEvents([]);
+    // 🌟 PERFORMANCE: Ambil event dari API HANYA saat mendekati section ini.
+    // Menghilangkan latency jaringan 8+ detik dari initial critical path!
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          getEvents()
+            .then((data) => {
+              if (Array.isArray(data) && data.length > 0) {
+                setEvents(data);
+              } else if (Array.isArray(data) && data.length === 0) {
+                setEvents([]);
+              }
+            })
+            .catch(() => {
+              setEvents(getDefaultEvents());
+            });
+          observer.disconnect();
         }
-      })
-      .catch(() => {
-        // Jika server backend/koneksi belum siap (misal saat cek project sebelum koding),
-        // fallback elegan tetap aktif dan tidak memunculkan error mengganggu
-        setEvents(getDefaultEvents());
-      });
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -69,7 +82,7 @@ export default function EventsSection() {
   }, [events]);
 
   return (
-    <section className="events" id="events">
+    <section className="events" id="events" ref={sectionRef}>
       <div className="section-header" data-aos="fade-up">
         <span className="section-label">WHAT'S ON</span>
         <h2 className="section-title">Upcoming Events</h2>

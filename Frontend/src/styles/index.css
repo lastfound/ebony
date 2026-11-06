@@ -1,7 +1,4 @@
-/* Import variables dan base */
-
-@import './variables.css';
-@import './base.css';
+/* Variables & Base are imported directly in main.jsx to eliminate CSS import waterfall */
 
 /* ============================================
    NAVBAR (DESKTOP & BASE)

@@ -13,11 +13,12 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Tangani 401 (token expired/invalid)
+// Tangani 401 (token expired/invalid) — kecuali jika request sedang mencoba login
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const isLoginRequest = err.config?.url?.includes('/login');
+    if (err.response?.status === 401 && !isLoginRequest) {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');
       window.location.href = '/admin/login';

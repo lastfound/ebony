@@ -124,6 +124,11 @@ export const toggleMenuStatus = async(id, isAvailable) => {
     return res.data;
 };
 
+export const toggleMenuFeatured = async(id) => {
+    const res = await api.patch(`/admin/menus/${id}/toggle-featured`);
+    return res.data;
+};
+
 /** === EVENTS === */
 export const getAdminEvents = async() => {
     const res = await api.get('/admin/events');

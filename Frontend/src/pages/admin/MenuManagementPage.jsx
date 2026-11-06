@@ -4,7 +4,7 @@ import MenuAdminCard from '../../components/admin/MenuAdminCard';
 import EventAdminCard from '../../components/admin/EventAdminCard';
 import Modal from '../../components/ui/Modal';
 import {
-  getAdminMenus, createMenu, updateMenu, deleteMenu, toggleMenuStatus,
+  getAdminMenus, createMenu, updateMenu, deleteMenu, toggleMenuStatus, toggleMenuFeatured,
   getAdminEvents, createEvent, updateEvent, deleteEvent,
 } from '../../api/adminApi';
 import {
@@ -23,6 +23,7 @@ export default function MenuManagementPage() {
   const [editItem, setEditItem] = useState(null);
   const [formLoading, setFormLoading] = useState(false);
   const [isPromoChecked, setIsPromoChecked] = useState(false);
+  const [isFeaturedChecked, setIsFeaturedChecked] = useState(false);
 
   // Menu PDF URL State
   const [pdfUrl, setPdfUrl] = useState(() => getLocalSiteSettings().menu_pdf_url || '');
@@ -44,6 +45,7 @@ export default function MenuManagementPage() {
 
   const soldOutCount = menus.filter(m => !m.is_available).length;
   const soldOutNames = menus.filter(m => !m.is_available).map(m => m.name);
+  const featuredCount = menus.filter(m => m.is_featured === 1 || m.is_featured === true).length;
 
   const filteredMenus = activeTab === 'All Items'
     ? menus
@@ -57,6 +59,18 @@ export default function MenuManagementPage() {
       ));
     } catch {
       alert('Gagal mengubah status menu.');
+    }
+  };
+
+  const handleToggleFeatured = async (id) => {
+    try {
+      const res = await toggleMenuFeatured(id);
+      const newStatus = res?.is_featured ?? !menus.find(m => m.id === id)?.is_featured;
+      setMenus(prev => prev.map(m =>
+        m.id === id ? { ...m, is_featured: newStatus } : m
+      ));
+    } catch {
+      alert('Gagal mengubah status Best Seller menu.');
     }
   };
 
@@ -85,6 +99,7 @@ export default function MenuManagementPage() {
     setFormLoading(true);
     const fd = new FormData(e.target);
     fd.set('is_promo', isPromoChecked ? '1' : '0');
+    fd.set('is_featured', isFeaturedChecked ? '1' : '0');
 
     try {
       if (editItem) {
@@ -176,9 +191,35 @@ export default function MenuManagementPage() {
           >
             <span>📄</span> Link Menu PDF
           </button>
-          <button className="btn btn--primary" onClick={() => { setEditItem(null); setIsPromoChecked(false); setShowMenuModal(true); }}>
+          <button className="btn btn--primary" onClick={() => { setEditItem(null); setIsPromoChecked(false); setIsFeaturedChecked(false); setShowMenuModal(true); }}>
             + Add New
           </button>
+        </div>
+      </div>
+
+      {/* Banner Notifikasi Best Seller (Our Favorites) */}
+      <div style={{
+        margin: '0 0 14px',
+        padding: '12px 18px',
+        borderRadius: '10px',
+        backgroundColor: '#fbf8f2',
+        border: '1px solid #e9dfcf',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '10px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.2rem' }}>⭐</span>
+          <div>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}>
+              Menu Best Seller (Beranda): {featuredCount} Terpilih (Maksimal 6 Tampil di 'Our Favorites')
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: '#78350f' }}>
+              Klik tombol "⭐ Set Best Seller" pada kartu menu di bawah untuk menampilkan atau menyembunyikan menu dari halaman depan.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -234,9 +275,11 @@ export default function MenuManagementPage() {
             <MenuAdminCard
               menu={menu}
               onToggle={() => handleToggle(menu.id, menu.is_available)}
+              onToggleFeatured={() => handleToggleFeatured(menu.id)}
               onEdit={() => { 
                 setEditItem(menu); 
                 setIsPromoChecked(menu.is_promo === 1 || menu.is_promo === true); 
+                setIsFeaturedChecked(menu.is_featured === 1 || menu.is_featured === true);
                 setShowMenuModal(true); 
               }}
               onDelete={() => handleDeleteMenu(menu.id)}
@@ -431,6 +474,22 @@ export default function MenuManagementPage() {
                     placeholder="e.g. romantic, family gathering, casual" 
                   />
                 </div>
+              </div>
+
+              {/* Setelan Best Seller (Our Favorites) */}
+              <div style={{ background: '#fdfbf7', padding: '16px', borderRadius: '8px', border: '1px solid #e7dfd5', marginBottom: '16px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px', color: '#1a1a1a' }}>
+                  <input
+                    type="checkbox"
+                    checked={isFeaturedChecked}
+                    onChange={(e) => setIsFeaturedChecked(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#c9a96e' }}
+                  />
+                  ⭐ Jadikan Menu Best Seller (Tampil di bagian 'Our Favorites' Beranda — Maksimal 6 Menu)
+                </label>
+                <p style={{ margin: '6px 0 0 24px', fontSize: '12px', color: '#6b7280' }}>
+                  Menu dengan status Best Seller akan ditampilkan di beranda depan Ebony Cafe.
+                </p>
               </div>
 
               {/* Setelan Promo Baru */}

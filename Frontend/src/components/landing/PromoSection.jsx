@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import AOS from 'aos';
 import { getPromoMenus } from '../../api/publicApi';
 
@@ -9,22 +9,37 @@ export default function PromoSection() {
   const [loaded, setLoaded] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const sectionRef = useRef(null);
 
   useEffect(() => {
-    getPromoMenus()
-      .then((filtered) => {
-        setPromoData(filtered);
-      })
-      .catch((error) => {
-        console.error('Gagal memuat data menu promo:', error);
-        setPromoData([]);
-      })
-      .finally(() => {
-        setLoaded(true);
-        setTimeout(() => {
-          AOS.refresh();
-        }, 150);
-      });
+    // 🌟 PERFORMANCE: Ambil menu promo HANYA saat mendekati section ini
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          getPromoMenus()
+            .then((filtered) => {
+              setPromoData(filtered);
+            })
+            .catch((error) => {
+              console.error('Gagal memuat data menu promo:', error);
+              setPromoData([]);
+            })
+            .finally(() => {
+              setLoaded(true);
+              setTimeout(() => {
+                AOS.refresh();
+              }, 150);
+            });
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const changeSlide = useCallback((newIndex) => {
@@ -64,7 +79,7 @@ export default function PromoSection() {
   const safeIndex = Math.min(currentIndex, displayData.length - 1);
 
   return (
-    <section className="promo-section" data-aos="fade-up">
+    <section className="promo-section" data-aos="fade-up" ref={sectionRef}>
       <div className="promo-container">
 
         {/* SISI KIRI: KONTEN TEKS */}

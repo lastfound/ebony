@@ -10,7 +10,7 @@ use App\Models\Reservation;
 use App\Models\ReservationItem;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
+use Carbon\Carbon;x`
 
 class DatabaseSeeder extends Seeder
 {

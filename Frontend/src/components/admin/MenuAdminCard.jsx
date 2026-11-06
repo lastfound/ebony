@@ -1,6 +1,9 @@
 import Toggle from '../ui/Toggle';
 
-export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
+export default function MenuAdminCard({ menu, onToggle, onToggleFeatured, onEdit, onDelete }) {
+  const isFeatured = menu.is_featured === 1 || menu.is_featured === true;
+  const isPromo = menu.is_promo === 1 || menu.is_promo === true;
+
   return (
     <div className="menu-admin-card" style={{
       display: 'flex',
@@ -25,7 +28,7 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
         </span>
         
         {/* Lencana Penanda Aktif Promo */}
-        {(menu.is_promo === 1 || menu.is_promo === true) && (
+        {isPromo && (
           <span style={{
             position: 'absolute',
             top: '8px',
@@ -40,6 +43,28 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
           }}>
             PROMO BANNER
+          </span>
+        )}
+
+        {/* Lencana Best Seller */}
+        {isFeatured && (
+          <span style={{
+            position: 'absolute',
+            top: isPromo ? '34px' : '8px',
+            right: '8px',
+            backgroundColor: '#c9a96e',
+            color: '#181212',
+            fontSize: '0.65rem',
+            fontWeight: 800,
+            padding: '3px 9px',
+            borderRadius: '20px',
+            letterSpacing: '0.05em',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            ⭐ BEST SELLER
           </span>
         )}
 
@@ -78,7 +103,6 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
             </span>
           </div>
           
-          {/* KOREKSI FIX: Kata 'vertical' sekarang sudah memakai tanda petik yang benar */}
           <p className="menu-admin-card__desc" style={{
             display: '-webkit-box',
             WebkitLineClamp: 2, 
@@ -86,10 +110,48 @@ export default function MenuAdminCard({ menu, onToggle, onEdit, onDelete }) {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             minHeight: '40px', 
-            margin: '8px 0 16px 0'
+            margin: '8px 0 12px 0'
           }}>
             {menu.description}
           </p>
+
+          {/* Tombol Cepat Toggle Best Seller */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '8px 0',
+            marginBottom: '12px',
+            borderTop: '1px solid #f0f0f0',
+            borderBottom: '1px solid #f0f0f0'
+          }}>
+            <button
+              type="button"
+              onClick={onToggleFeatured}
+              style={{
+                background: isFeatured ? '#fef3c7' : '#f9fafb',
+                border: `1px solid ${isFeatured ? '#f59e0b' : '#e5e7eb'}`,
+                color: isFeatured ? '#b45309' : '#4b5563',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all 0.15s ease'
+              }}
+              title={isFeatured ? 'Hapus dari Best Seller di Beranda' : 'Aktifkan sebagai Best Seller di Beranda'}
+            >
+              <span>{isFeatured ? '⭐ Best Seller (Aktif)' : '☆ Set Best Seller'}</span>
+            </button>
+            {isFeatured && (
+              <span style={{ fontSize: '0.68rem', color: '#059669', fontWeight: 600 }}>
+                ✓ Tampil di Beranda
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Aksi Baris Bawah */}

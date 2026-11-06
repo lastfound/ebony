@@ -105,9 +105,7 @@ class ReservationController extends Controller
     {
         $perPage = (int) $request->get('per_page', 10);
 
-        $query = Reservation::whereDate('date', '>=', Carbon::today())
-            ->orderBy('date', 'asc')
-            ->orderBy('time', 'asc');
+        $query = Reservation::with('table');
 
         if ($request->filled('date') && $request->date !== 'all') {
             if ($request->date === 'today') {
@@ -115,6 +113,9 @@ class ReservationController extends Controller
             } else {
                 $query->whereDate('date', $request->date);
             }
+        } elseif (! $request->filled('date')) {
+            // Default: tampilkan reservasi mulai hari ini ke depan (upcoming)
+            $query->whereDate('date', '>=', Carbon::today());
         }
 
         if ($request->filled('search')) {
@@ -125,6 +126,8 @@ class ReservationController extends Controller
                     ->orWhere('email', 'like', "%{$s}%");
             });
         }
+
+        $query->orderBy('date', 'asc')->orderBy('time', 'asc');
 
         $paginated = $query->paginate($perPage);
 
@@ -142,6 +145,7 @@ class ReservationController extends Controller
                 'source' => $r->source,
                 'is_arrived' => $r->is_arrived,
                 'status' => $r->status,
+                'table_name' => $r->table?->name ?? 'Unassigned',
             ];
         });
 

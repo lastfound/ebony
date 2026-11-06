@@ -16,31 +16,26 @@ export default function AboutSection() {
   const sectionRef = useRef(null);
 
   useEffect(() => {
-    let mounted = true;
-    getSiteSettings().then((data) => {
-      if (mounted && data) setSettings(data);
-    });
-
     const handleUpdate = (e) => {
       if (e.detail) setSettings(e.detail);
     };
     window.addEventListener('site-settings-updated', handleUpdate);
     return () => {
-      mounted = false;
       window.removeEventListener('site-settings-updated', handleUpdate);
     };
   }, []);
 
   // 🌟 PERFORMANCE OPTIMIZATION:
-  // Video About berukuran besar (~91 MB). Gunakan IntersectionObserver agar video
-  // HANYA mulai diunduh saat pengguna mendekati section ini.
-  // Ini menghemat 91 MB kuota saat halaman pertama kali dibuka!
+  // Video & settings diambil HANYA saat pengguna mendekati section ini.
   useEffect(() => {
     if (!sectionRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           setShouldLoadVideo(true);
+          getSiteSettings().then((data) => {
+            if (data) setSettings(data);
+          });
           observer.disconnect();
         }
       },

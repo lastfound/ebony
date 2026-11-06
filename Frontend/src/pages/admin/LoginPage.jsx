@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { adminLogin } from '../../api/adminApi';
@@ -7,8 +7,15 @@ export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { admin, login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Jika sudah login, langsung arahkan ke dashboard
+    if (admin) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [admin, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +27,7 @@ export default function LoginPage() {
       const { token, user } = res;
       
       login(user, token);
-      navigate('/admin/dashboard');
+      navigate('/admin/dashboard', { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Email atau password salah.');
     } finally {
@@ -40,14 +47,14 @@ export default function LoginPage() {
         
         <form className="login-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Email</label>
+            <label className="form-label">Email / Username</label>
             <input 
               className="form-input" 
-              type="email" 
+              type="text" 
               required
               value={form.email}
               onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-              placeholder="admin@ebonyindonesia.com" 
+              placeholder="admin@ebony.com atau admin" 
             />
           </div>
           <div className="form-group">

@@ -61,11 +61,12 @@ Route::get('/reservations',                [ReservationController::class, 'index
 
 
     // Menus
-    Route::get('/menus',              [MenuController::class, 'index']);
-    Route::post('/menus',             [MenuController::class, 'store']);
-    Route::put('/menus/{id}',         [MenuController::class, 'update']);
-    Route::delete('/menus/{id}',      [MenuController::class, 'destroy']);
-    Route::patch('/menus/{id}/toggle',[MenuController::class, 'toggleStatus']);
+    Route::get('/menus',                        [MenuController::class, 'index']);
+    Route::post('/menus',                       [MenuController::class, 'store']);
+    Route::put('/menus/{id}',                   [MenuController::class, 'update']);
+    Route::delete('/menus/{id}',                [MenuController::class, 'destroy']);
+    Route::patch('/menus/{id}/toggle',          [MenuController::class, 'toggleStatus']);
+    Route::patch('/menus/{id}/toggle-featured', [MenuController::class, 'toggleFeatured']);
 
     // Tables (denah meja untuk admin saat konfirmasi)
     Route::get('/tables',           [\App\Http\Controllers\Api\RestaurantTableController::class, 'index']);

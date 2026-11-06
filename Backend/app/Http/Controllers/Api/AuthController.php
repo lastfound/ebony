@@ -16,11 +16,23 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validated = $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|string',
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $validated['email'])->first();
+        $loginInput = trim($validated['email']);
+
+        // Cari berdasarkan email ATAU nama / username (contoh: 'admin', 'admin@ebony.com', 'admin@ebonyindonesia.com')
+        $user = User::where('email', $loginInput)
+            ->orWhere('name', $loginInput)
+            ->first();
+
+        // Fallback pencarian fleksibel untuk input username
+        if (!$user && in_array(strtolower($loginInput), ['admin', 'admin@ebonyindonesia.com', 'ebony admin', 'ebony'])) {
+            $user = User::where('email', 'admin@ebony.com')
+                ->orWhere('email', 'admin@ebonyindonesia.com')
+                ->first();
+        }
 
         if (!$user || !Hash::check($validated['password'], $user->password)) {
             return response()->json([

@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Navbar from '../../components/landing/Navbar';
-import Footer from '../../components/landing/Footer';
 import { getEvents } from '../../api/publicApi';
+
+const Footer = lazy(() => import('../../components/landing/Footer'));
 
 export default function EventDetailPage() {
   const { id } = useParams();
@@ -159,7 +160,9 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      <Footer />
+      <Suspense fallback={null}>
+        <Footer />
+      </Suspense>
     </>
   );
 }

@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getMenuFavorites } from '../../api/publicApi';
 import MenuCard from './MenuCard';
 import AOS from 'aos';
 
 export default function FavoritesSection() {
   const [menus, setMenus] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const sectionRef = useRef(null);
 
   // 1. Link Folder Google Drive (Untuk View Full Menu)
   const folderDriveUrl = "https://drive.google.com/drive/folders/1gb8Bpddjg6qg6FJ18JC8udaQpLIc8Y4F?usp=share_link";
@@ -16,26 +17,37 @@ export default function FavoritesSection() {
   const spiritPdfUrl = "https://drive.google.com/file/d/14aIDAeIBA-jg4WkuGylgOunWJRxfSItf/view?usp=sharing";
 
   useEffect(() => {
-    getMenuFavorites()
-      .then((data) => {
-        setMenus(Array.isArray(data) ? data : []);
-        setLoadFailed(false);
-      })
-      .catch(() => {
-        setMenus([]);
-        setLoadFailed(true);
-      })
-      .finally(() => setLoading(false));
+    // 🌟 PERFORMANCE: Ambil menu favorit dari backend hanya saat mendekati section
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          getMenuFavorites()
+            .then((data) => {
+              setMenus(Array.isArray(data) ? data : []);
+              setLoadFailed(false);
+            })
+            .catch(() => {
+              setMenus([]);
+              setLoadFailed(true);
+            });
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
-    if (!loading) {
-      AOS.refresh();
-    }
-  }, [loading]);
+    AOS.refresh();
+  }, [menus]);
 
   return (
-    <section className="favorites" id="menu">
+    <section className="favorites" id="menu" ref={sectionRef}>
       <div className="section-header" data-aos="fade-up">
         <span className="section-label">THE GALLERY MENU</span>
         <h2 className="section-title">Our favorites</h2>
@@ -56,11 +68,18 @@ export default function FavoritesSection() {
           ))}
         </div>
       ) : (
-        <p style={{ textAlign: 'center', color: 'var(--color-muted)' }}>
-          {loadFailed
-            ? 'Gagal memuat menu. Periksa koneksi ke server lalu muat ulang halaman.'
-            : 'Belum ada menu favorit saat ini.'}
-        </p>
+        <div style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--color-muted)' }}>
+          <p style={{ fontSize: '1rem', margin: '0 0 6px', letterSpacing: '0.02em' }}>
+            {loadFailed
+              ? 'Gagal memuat menu. Periksa koneksi ke server lalu muat ulang halaman.'
+              : 'Belum ada menu Best Seller yang ditampilkan saat ini.'}
+          </p>
+          {!loadFailed && (
+            <p style={{ fontSize: '0.85rem', opacity: 0.65 }}>
+              Admin dapat memilih dan mengaktifkan hingga 6 menu Best Seller melalui Admin Dashboard.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="favorites__actions">
