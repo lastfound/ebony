@@ -85,9 +85,10 @@ export default function Sidebar({ unreadCount = 0, onClearUnread }) {
       <div className="sidebar__profile">
         <div style={{
           width: 36, height: 36, borderRadius: '50%',
-          background: 'var(--color-border)',
+          background: 'rgba(255, 255, 255, 0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 15, color: 'var(--color-muted)',
+          fontSize: 15, color: '#ffffff',
+          fontWeight: 700,
           flexShrink: 0,
         }}>
           {admin?.name ? admin.name.charAt(0).toUpperCase() : '👤'}
