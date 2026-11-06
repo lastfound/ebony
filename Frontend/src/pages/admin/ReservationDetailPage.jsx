@@ -177,11 +177,9 @@ export default function ReservationDetailPage() {
         closingMessage = 'Terima kasih telah menghubungi Ebony Cafe & Gallery!';
     }
 
-    const tableLine = reservation.table
-      ? `• Meja: ${reservation.table.name} (${reservation.table.area})\n`
-      : (selectedTableId
-        ? `• Meja: ${(tables.find((t) => String(t.id) === String(selectedTableId))?.name) || `#${selectedTableId}`} (pilihan sementara, belum disimpan)\n`
-        : `• Meja: Belum ditentukan\n`);
+    const tableLine = reservation.seating_notes
+      ? `• Preferensi Tempat Duduk: ${reservation.seating_notes}\n`
+      : '';
 
     const msg = encodeURIComponent(
       `Halo Kak ${reservation.guest_name || reservation.name || ''},\n\n` +
