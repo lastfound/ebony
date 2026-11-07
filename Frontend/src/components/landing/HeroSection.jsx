@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 // 1. Masukkan link CDN di bawah jika diunggah ke CDN eksternal (Cloudinary, S3, BunnyCDN, dll).
 // 2. Jika dibiarkan kosong (''), otomatis memakai video lokal dari folder public.
 const HERO_VIDEO_CDN = '';
-const DEFAULT_HERO_VIDEO = '/assets/videos/background.mp4';
+const DEFAULT_HERO_VIDEO = '/assets/videos/bchero.mp4';
 
 export default function HeroSection() {
   const navigate = useNavigate();

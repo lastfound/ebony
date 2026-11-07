@@ -34,5 +34,6 @@ dist-ssr
 # Abaikan video besar yang tidak perlu di-push
 public/assets/videos/aboutvid.mp4
 public/assets/videos/hero-bg.mp4
+public/assets/videos/background.mp4
 public/assets/videos/KONTEN*
 public/assets/videos/WhatsApp*
