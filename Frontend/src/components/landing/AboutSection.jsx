@@ -4,43 +4,38 @@ import { getSiteSettings, getLocalSiteSettings } from '../../services/siteSettin
 // 🌟 VIDEO SOURCE:
 // 1. Masukkan link CDN di bawah ini jika sudah diunggah (misal: Cloudinary, S3, BunnyCDN, dll).
 // 2. Jika dibiarkan kosong (''), otomatis memakai video lokal dari folder public.
+// 3. aboutvid.mp4 tidak di-push ke git (terlalu besar 87MB) — isi ABOUT_VIDEO_CDN atau
+//    unggah ke Cloudinary dan isi URL-nya di bawah ini.
 const ABOUT_VIDEO_CDN = '';
-const DEFAULT_ABOUT_VIDEO = '/assets/videos/KONTEN 3 POTRAIT @EB.mp4';
-
-// 🌟 PERFORMANCE: Poster dari public folder (tidak di-bundle Vite)
-const ABOUT_VIDEO_POSTER = '/assets/images/ch.jfif';
+const DEFAULT_ABOUT_VIDEO = '/assets/videos/aboutvid.mp4';
 
 export default function AboutSection() {
   const [settings, setSettings] = useState(getLocalSiteSettings);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const sectionRef = useRef(null);
 
   useEffect(() => {
-    let mounted = true;
-    getSiteSettings().then((data) => {
-      if (mounted && data) setSettings(data);
-    });
-
     const handleUpdate = (e) => {
       if (e.detail) setSettings(e.detail);
     };
     window.addEventListener('site-settings-updated', handleUpdate);
     return () => {
-      mounted = false;
       window.removeEventListener('site-settings-updated', handleUpdate);
     };
   }, []);
 
   // 🌟 PERFORMANCE OPTIMIZATION:
-  // Video About berukuran besar (~91 MB). Gunakan IntersectionObserver agar video
-  // HANYA mulai diunduh saat pengguna mendekati section ini.
-  // Ini menghemat 91 MB kuota saat halaman pertama kali dibuka!
+  // Video & settings diambil HANYA saat pengguna mendekati section ini.
   useEffect(() => {
     if (!sectionRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
           setShouldLoadVideo(true);
+          getSiteSettings().then((data) => {
+            if (data) setSettings(data);
+          });
           observer.disconnect();
         }
       },
@@ -50,7 +45,7 @@ export default function AboutSection() {
     return () => observer.disconnect();
   }, []);
 
-  const activeVideo = ABOUT_VIDEO_CDN || settings.about_video_url || DEFAULT_ABOUT_VIDEO;
+  const activeVideo = settings.about_video_url || ABOUT_VIDEO_CDN || DEFAULT_ABOUT_VIDEO;
 
   const paragraphs = (settings.about_description || '')
     .split('\n')
@@ -90,17 +85,37 @@ export default function AboutSection() {
         </div>
 
         {/* Video / Media */}
-        <div className="about__image" data-aos="fade-left" data-aos-delay="150">
-          <video
-            src={shouldLoadVideo ? activeVideo : undefined}
-            autoPlay={shouldLoadVideo}
-            loop
-            muted
-            playsInline
-            preload="none"
-            poster={ABOUT_VIDEO_POSTER}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+        <div className="about__image" data-aos="fade-left" data-aos-delay="150" style={{ background: '#181212', borderRadius: '16px', overflow: 'hidden' }}>
+          {shouldLoadVideo && !videoError ? (
+            <video
+              src={activeVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              onError={() => setVideoError(true)}
+            />
+          ) : (
+            /* Placeholder saat video tidak tersedia (Vercel preview / CDN belum di-set) */
+            <div style={{
+              width: '100%',
+              height: '100%',
+              minHeight: '320px',
+              background: 'linear-gradient(135deg, #1a0f0f 0%, #2d1a1a 50%, #1a0f0f 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: '12px',
+            }}>
+              <span style={{ fontSize: '3rem' }}>☕</span>
+              <span style={{ color: 'var(--color-muted, #888)', fontSize: '0.85rem', letterSpacing: '0.1em' }}>
+                EBONY CAFÉ
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </section>

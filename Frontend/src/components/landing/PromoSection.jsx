@@ -1,30 +1,70 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import AOS from 'aos';
 import { getPromoMenus } from '../../api/publicApi';
 
 const PROMO_FALLBACK_IMG = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80';
 
+const DEFAULT_PROMO_DATA = [
+  {
+    id: 'promo-1',
+    name: 'Wagyu Tenderloin Special Offer',
+    description: 'Nikmati sajian istimewa Signature Wagyu Tenderloin Steak dengan saus truffle butter khas Ebony.',
+    promo_badge: 'CHEF SELECTION',
+    promo_tagline: 'SPECIAL OFFER',
+    promo_subtext: 'Rasakan pengalaman kuliner tak terlupakan di suasana hangat Ebony Cafe.',
+    image_url: '/assets/images/menu/stk.jfif',
+  },
+  {
+    id: 'promo-2',
+    name: 'Artisan Pastry & Coffee Pairing',
+    description: 'Setiap pembelian aneka French Croissant, nikmati racikan single-origin Latte dengan harga bundling istimewa.',
+    promo_badge: 'AFTERNOON SPECIAL',
+    promo_tagline: 'DAILY PAIRING',
+    promo_subtext: 'Tersedia setiap hari pukul 14:00 - 18:00 WIB.',
+    image_url: '/assets/images/menu/pastry.jfif',
+  }
+];
+
 export default function PromoSection() {
-  const [promoData, setPromoData] = useState([]);
+  const [promoData, setPromoData] = useState(DEFAULT_PROMO_DATA);
   const [loaded, setLoaded] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const sectionRef = useRef(null);
 
   useEffect(() => {
-    getPromoMenus()
-      .then((filtered) => {
-        setPromoData(filtered);
-      })
-      .catch((error) => {
-        console.error('Gagal memuat data menu promo:', error);
-        setPromoData([]);
-      })
-      .finally(() => {
-        setLoaded(true);
-        setTimeout(() => {
-          AOS.refresh();
-        }, 150);
-      });
+    // 🌟 PERFORMANCE: Ambil menu promo HANYA saat mendekati section ini
+    if (!sectionRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          getPromoMenus()
+            .then((filtered) => {
+              if (Array.isArray(filtered) && filtered.length > 0) {
+                setPromoData(filtered);
+              } else {
+                setPromoData(DEFAULT_PROMO_DATA);
+              }
+            })
+            .catch((error) => {
+              console.error('Gagal memuat data menu promo:', error);
+              setPromoData(DEFAULT_PROMO_DATA);
+            })
+            .finally(() => {
+              setLoaded(true);
+              setTimeout(() => {
+                AOS.refresh();
+              }, 150);
+            });
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '300px' }
+    );
+
+    observer.observe(sectionRef.current);
+    return () => observer.disconnect();
   }, []);
 
   const changeSlide = useCallback((newIndex) => {
@@ -64,7 +104,7 @@ export default function PromoSection() {
   const safeIndex = Math.min(currentIndex, displayData.length - 1);
 
   return (
-    <section className="promo-section" data-aos="fade-up">
+    <section className="promo-section" data-aos="fade-up" ref={sectionRef}>
       <div className="promo-container">
 
         {/* SISI KIRI: KONTEN TEKS */}

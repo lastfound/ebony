@@ -24,6 +24,15 @@ dist-ssr
 *.sw?
 
 
-# Media assets kept local for development
-public/assets/images/
-public/assets/videos/
+# ============================================================
+# MEDIA ASSETS
+# Gambar (logo, menu, gallery, events) → ikut ke git ✅
+# Video besar (87MB, 20MB) → diabaikan ❌
+# background.mp4 (8MB) → ikut git untuk hero section ✅
+# ============================================================
+
+# Abaikan video besar yang tidak perlu di-push
+public/assets/videos/aboutvid.mp4
+public/assets/videos/hero-bg.mp4
+public/assets/videos/KONTEN*
+public/assets/videos/WhatsApp*
