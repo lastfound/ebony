@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // 🌟 VIDEO SOURCE:
@@ -6,56 +6,34 @@ import { useNavigate } from 'react-router-dom';
 // 2. Jika dibiarkan kosong (''), otomatis memakai video lokal dari folder public.
 const HERO_VIDEO_CDN = '';
 const DEFAULT_HERO_VIDEO = '/assets/videos/bchero.mp4';
+const HERO_FALLBACK_IMG = '/assets/images/menu/hero1.jfif';
 
 export default function HeroSection() {
   const navigate = useNavigate();
   const heroRef = useRef(null);
   const videoRef = useRef(null);
-  const [showVideo, setShowVideo] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
 
   const activeVideo = HERO_VIDEO_CDN || DEFAULT_HERO_VIDEO;
 
-  // 🌟 PERFORMANCE: Tunda pemuatan video 20 MB sampai halaman sepenuhnya selesai dirender.
-  // Lighthouse mengukur LCP & FCP dari konten HTML/CSS pertama yang muncul di layar.
-  // Jika video mulai di-download bersamaan, ia akan memakan bandwidth dan menghambat
-  // font, CSS, dan JS utama yang harus selesai terlebih dahulu.
-  //
-  // Strategi: Tunggu event 'load' (semua resource kritis selesai) + 100ms buffer,
-  // baru inject <video> ke DOM. Ini memastikan skor Lighthouse tidak terhambat video.
-  const startVideo = useCallback(() => {
-    setShowVideo(true);
-  }, []);
-
+  // Pastikan muted diset langsung pada elemen DOM agar browser tidak memblokir autoplay
   useEffect(() => {
-    // Jika user mengaktifkan prefers-reduced-motion atau save-data, skip video
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion || navigator.connection?.saveData) return;
-
-    if (document.readyState === 'complete') {
-      // Halaman sudah selesai load — langsung mulai
-      const t = setTimeout(startVideo, 100);
-      return () => clearTimeout(t);
+    if (videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().then(() => {
+        setVideoPlaying(true);
+      }).catch(() => {
+        // Autoplay terblokir browser — fallback gambar tetap tampil rapi
+        setVideoPlaying(false);
+      });
     }
-
-    // Tunggu halaman selesai load baru inject video
-    const onLoad = () => {
-      setTimeout(startVideo, 100);
-    };
-    window.addEventListener('load', onLoad, { once: true });
-
-    // Safety fallback: jika load event terlalu lama, mulai setelah 3 detik
-    const fallback = setTimeout(startVideo, 3000);
-
-    return () => {
-      window.removeEventListener('load', onLoad);
-      clearTimeout(fallback);
-    };
-  }, [startVideo]);
+  }, [activeVideo]);
 
   // 🌟 Intersection Observer: Otomatis PAUSE video saat hero di-scroll keluar layar
   // dan RESUME saat kembali ke atas → menghemat CPU/GPU dan baterai.
   useEffect(() => {
-    if (!heroRef.current || !showVideo) return;
+    if (!heroRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -74,30 +52,51 @@ export default function HeroSection() {
 
     observer.observe(heroRef.current);
     return () => observer.disconnect();
-  }, [showVideo]);
+  }, []);
 
   return (
     <section className="hero" id="home" ref={heroRef}>
       <div className="hero__bg" style={{ backgroundColor: '#181212' }}>
-        {showVideo && (
-          <video
-            ref={videoRef}
-            src={activeVideo}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="auto"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
-        )}
+        {/* Foto fallback instan: langsung tampil seketika agar layar TIDAK GELAP saat video sedang buffering */}
+        <img
+          src={HERO_FALLBACK_IMG}
+          alt="Ebony Ambiance"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: videoPlaying ? 0 : 1,
+            transition: 'opacity 0.8s ease-in-out',
+            zIndex: 1,
+          }}
+        />
+
+        {/* Video background */}
+        <video
+          ref={videoRef}
+          src={activeVideo}
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          onPlaying={() => setVideoPlaying(true)}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            zIndex: 2,
+            opacity: videoPlaying ? 1 : 0,
+            transition: 'opacity 0.8s ease-in-out',
+          }}
+        />
       </div>
-      <div className="hero__overlay" />
-      <div className="hero__content">
+      <div className="hero__overlay" style={{ zIndex: 3 }} />
+      <div className="hero__content" style={{ zIndex: 4 }}>
         <span className="hero__label">FRENCH · ASIAN FUSION</span>
         <h1 className="hero__title">
           A culinary experience<br />to remember

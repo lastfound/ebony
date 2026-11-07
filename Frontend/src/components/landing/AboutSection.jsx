@@ -86,8 +86,14 @@ export default function AboutSection() {
 
         {/* Video / Media */}
         <div className="about__image" data-aos="fade-left" data-aos-delay="150" style={{ background: '#181212', borderRadius: '16px', overflow: 'hidden' }}>
-          {shouldLoadVideo && !videoError ? (
+          {shouldLoadVideo && activeVideo && !videoError ? (
             <video
+              ref={(el) => {
+                if (el) {
+                  el.defaultMuted = true;
+                  el.muted = true;
+                }
+              }}
               src={activeVideo}
               autoPlay
               loop
@@ -98,23 +104,17 @@ export default function AboutSection() {
               onError={() => setVideoError(true)}
             />
           ) : (
-            /* Placeholder saat video tidak tersedia (Vercel preview / CDN belum di-set) */
-            <div style={{
-              width: '100%',
-              height: '100%',
-              minHeight: '320px',
-              background: 'linear-gradient(135deg, #1a0f0f 0%, #2d1a1a 50%, #1a0f0f 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              gap: '12px',
-            }}>
-              <span style={{ fontSize: '3rem' }}>☕</span>
-              <span style={{ color: 'var(--color-muted, #888)', fontSize: '0.85rem', letterSpacing: '0.1em' }}>
-                EBONY CAFÉ
-              </span>
-            </div>
+            /* Foto atmosfer Ebony Cafe saat video belum tersedia */
+            <img
+              src="/assets/images/gallery/gallery1.jpg"
+              alt="Ebony Cafe Sanctuary"
+              loading="lazy"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', minHeight: '340px' }}
+              onError={(e) => {
+                e.currentTarget.onerror = null;
+                e.currentTarget.src = 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=1000&q=80';
+              }}
+            />
           )}
         </div>
       </div>
