@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\SiteSetting;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
 
@@ -59,10 +60,14 @@ class SiteSettingController extends Controller
      */
     public function publicIndex()
     {
+        $data = Cache::remember('site_settings_public', 3600, function () {
+            return $this->getSettings();
+        });
+
         return response()->json([
             'status' => 'success',
-            'data' => $this->getSettings(),
-        ]);
+            'data' => $data,
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
 
     /**
@@ -70,6 +75,11 @@ class SiteSettingController extends Controller
      */
     public function update(Request $request)
     {
+        try {
+            Cache::forget('site_settings_public');
+        } catch (Throwable $e) {
+            // ignore
+        }
         $current = $this->getSettings();
         $updates = [];
 

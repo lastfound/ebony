@@ -5,19 +5,32 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Event;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class EventController extends Controller
 {
+    private function clearEventCache(): void
+    {
+        try {
+            Cache::forget('events_public');
+        } catch (\Throwable $e) {
+            // Ignore cache clear error
+        }
+    }
+
     /**
      * Public list of upcoming events.
      */
     public function publicIndex()
     {
-        $events = Event::where('is_active', true)
-                       ->orderBy('date', 'asc')
-                       ->get();
+        $events = Cache::remember('events_public', 3600, function () {
+            return Event::where('is_active', true)
+                           ->orderBy('date', 'asc')
+                           ->get();
+        });
 
-        return response()->json($events);
+        return response()->json($events)
+            ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
 
     /**
@@ -76,6 +89,8 @@ class EventController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ]);
 
+        $this->clearEventCache();
+
         return response()->json([
             'message' => 'Event berhasil ditambahkan',
             'data' => $event,
@@ -118,6 +133,7 @@ class EventController extends Controller
         }
 
         $event->update($validated);
+        $this->clearEventCache();
 
         return response()->json([
             'message' => 'Event berhasil diperbarui',
@@ -132,6 +148,7 @@ class EventController extends Controller
     {
         $event = Event::findOrFail($id);
         $event->delete();
+        $this->clearEventCache();
 
         return response()->json([
             'message' => 'Event berhasil dihapus',

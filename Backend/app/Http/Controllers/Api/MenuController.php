@@ -5,31 +5,46 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Menu;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class MenuController extends Controller
 {
+    private function clearMenuCache(): void
+    {
+        try {
+            Cache::flush();
+        } catch (\Throwable $e) {
+            // Ignore cache clear error
+        }
+    }
+
     public function publicIndex(Request $request)
     {
-        $query = Menu::where('is_available', true);
+        $featured = $request->boolean('featured') || $request->has('featured') ? '1' : '0';
+        $cat = $request->filled('category') && $request->category !== 'All Items' ? $request->category : 'all';
+        $limit = (int) $request->input('limit', 6);
+        $cacheKey = "menus_pub_{$featured}_{$cat}_{$limit}";
 
-        // Hanya tampilkan yang Best Seller (featured)
-        if ($request->boolean('featured') || $request->has('featured')) {
-            $query->where('is_featured', true);
-        }
+        $menus = Cache::remember($cacheKey, 3600, function () use ($request, $featured, $limit) {
+            $query = Menu::where('is_available', true);
 
-        if ($request->filled('category') && $request->category !== 'All Items') {
-            $query->where('category', $request->category);
-        }
+            if ($featured === '1') {
+                $query->where('is_featured', true);
+            }
 
-        // Batasi maksimal 6 menu untuk halaman depan
-        $limit = $request->input('limit', 6);
-        $menus = $query->orderBy('is_featured', 'desc')
-                       ->orderBy('id', 'desc')
-                       ->limit((int)$limit)
-                       ->get();
+            if ($request->filled('category') && $request->category !== 'All Items') {
+                $query->where('category', $request->category);
+            }
 
-        return response()->json($menus);
+            return $query->orderBy('is_featured', 'desc')
+                           ->orderBy('id', 'desc')
+                           ->limit($limit)
+                           ->get();
+        });
+
+        return response()->json($menus)
+            ->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
 
     public function index(Request $request)
@@ -85,6 +100,8 @@ class MenuController extends Controller
             'promo_subtext' => $validated['promo_subtext'] ?? null,
         ]);
 
+        $this->clearMenuCache();
+
         return response()->json([
             'message' => 'Menu berhasil ditambahkan',
             'data' => $menu,
@@ -129,6 +146,7 @@ class MenuController extends Controller
         $validated['is_promo'] = $request->input('is_promo', 0);
 
         $menu->update($validated);
+        $this->clearMenuCache();
 
         return response()->json([
             'message' => 'Menu berhasil diperbarui',
@@ -140,6 +158,7 @@ class MenuController extends Controller
     {
         $menu = Menu::findOrFail($id);
         $menu->delete();
+        $this->clearMenuCache();
 
         return response()->json([
             'message' => 'Menu berhasil dihapus',
@@ -151,6 +170,7 @@ class MenuController extends Controller
         $menu = Menu::findOrFail($id);
         $menu->is_available = !$menu->is_available;
         $menu->save();
+        $this->clearMenuCache();
 
         return response()->json([
             'message' => 'Status ketersediaan menu berhasil diubah',
@@ -164,6 +184,7 @@ class MenuController extends Controller
         $menu = Menu::findOrFail($id);
         $menu->is_featured = !$menu->is_featured;
         $menu->save();
+        $this->clearMenuCache();
 
         return response()->json([
             'message' => 'Status Best Seller berhasil diubah',

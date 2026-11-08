@@ -3,11 +3,11 @@ import { useAuth } from '../../hooks/useAuth';
 import { adminLogout } from '../../api/adminApi';
 
 const navItems = [
-  { to: '/admin/dashboard', icon: '⊞', label: 'DASHBOARD' },
-  { to: '/admin/reservations', icon: '📅', label: 'RESERVATIONS' },
-  { to: '/admin/menu-management', icon: '🍴', label: 'MENU MANAGEMENT' },
-  { to: '/admin/events', icon: '🎟', label: 'EVENTS' },
-  { to: '/admin/gallery', icon: '🖼', label: 'GALLERY' },
+  { to: '/admin/dashboard', label: 'DASHBOARD' },
+  { to: '/admin/reservations', label: 'RESERVATIONS' },
+  { to: '/admin/menu-management', label: 'MENU MANAGEMENT' },
+  { to: '/admin/events', label: 'EVENTS' },
+  { to: '/admin/gallery', label: 'GALLERY' },
 ];
 
 export default function Sidebar({ unreadCount = 0, onClearUnread }) {

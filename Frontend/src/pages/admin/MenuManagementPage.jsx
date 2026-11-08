@@ -180,7 +180,7 @@ export default function MenuManagementPage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '1.2rem' }}>⭐</span>
+          <span style={{ fontSize: '1.2rem' }}></span>
           <div>
             <p style={{ margin: 0, fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}>
               Menu Best Seller (Beranda): {featuredCount} Terpilih (Maksimal 6 Tampil di 'Our Favorites')
@@ -204,7 +204,7 @@ export default function MenuManagementPage() {
           gap: '10px',
         }}
       >
-        <span style={{ fontSize: '1.2rem' }}>{soldOutCount > 0 ? '🤖⚠️' : '🤖✅'}</span>
+        <span style={{ fontSize: '1.2rem' }}>{soldOutCount > 0 ? '⚠️' : '✅'}</span>
         <div>
           <p
             style={{

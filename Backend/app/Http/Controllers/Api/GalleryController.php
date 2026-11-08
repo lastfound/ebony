@@ -5,24 +5,36 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Gallery;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 
 class GalleryController extends Controller
 {
+    private function clearGalleryCache(): void
+    {
+        try {
+            Cache::forget('galleries_public');
+        } catch (\Throwable $e) {
+            // Ignore cache clear error
+        }
+    }
+
     /**
      * Public index: tampilkan foto galeri yang aktif untuk landing page.
      */
     public function publicIndex()
     {
-        $galleries = Gallery::where('is_active', true)
-            ->orderBy('order', 'asc')
-            ->orderBy('id', 'desc')
-            ->get();
+        $galleries = Cache::remember('galleries_public', 3600, function () {
+            return Gallery::where('is_active', true)
+                ->orderBy('order', 'asc')
+                ->orderBy('id', 'desc')
+                ->get();
+        });
 
         return response()->json([
             'status' => 'success',
             'data' => $galleries,
-        ]);
+        ])->header('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     }
 
     /**
@@ -75,6 +87,8 @@ class GalleryController extends Controller
             'is_active' => $request->boolean('is_active', true),
         ]);
 
+        $this->clearGalleryCache();
+
         return response()->json([
             'message' => 'Foto galeri berhasil ditambahkan.',
             'data' => $gallery,
@@ -124,6 +138,7 @@ class GalleryController extends Controller
         }
 
         $gallery->save();
+        $this->clearGalleryCache();
 
         return response()->json([
             'message' => 'Foto galeri berhasil diperbarui.',
@@ -144,6 +159,7 @@ class GalleryController extends Controller
         }
 
         $gallery->delete();
+        $this->clearGalleryCache();
 
         return response()->json([
             'message' => 'Foto galeri berhasil dihapus.',
@@ -158,6 +174,7 @@ class GalleryController extends Controller
         $gallery = Gallery::findOrFail($id);
         $gallery->is_active = !$gallery->is_active;
         $gallery->save();
+        $this->clearGalleryCache();
 
         return response()->json([
             'message' => 'Status galeri berhasil diubah.',
