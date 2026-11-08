@@ -207,6 +207,9 @@ export default function DashboardPage() {
           <Link to="/admin/menu-management" className="btn btn--outline-dark btn--sm">
             🍴 Kelola Menu &amp; PDF
           </Link>
+          <Link to="/admin/events" className="btn btn--outline-dark btn--sm">
+            🎟 Kelola Event
+          </Link>
           <Link to="/admin/gallery" className="btn btn--outline-dark btn--sm">
             🖼 Kelola Galeri
           </Link>

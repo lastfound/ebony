@@ -14,6 +14,8 @@ const DashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
 const ReservationsPage = lazy(() => import('./pages/admin/ReservationsPage'));
 const ReservationDetailPage = lazy(() => import('./pages/admin/ReservationDetailPage'));
 const MenuManagementPage = lazy(() => import('./pages/admin/MenuManagementPage'));
+const EventsManagementPage = lazy(() => import('./pages/admin/EventsManagementPage'));
+const GalleryManagementPage = lazy(() => import('./pages/admin/GalleryManagementPage'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const ProtectedRoute = lazy(() => import('./components/admin/ProtectedRoute'));
 const FloatingAIChat = lazy(() => import('./components/ui/FloatingAIChat'));
@@ -54,7 +56,8 @@ export default function App() {
               <Route path="reservations" element={<ReservationsPage />} />
               <Route path="reservations/:id" element={<ReservationDetailPage />} />
               <Route path="menu-management" element={<MenuManagementPage />} />
-              <Route path="gallery" element={<MenuManagementPage />} />
+              <Route path="events" element={<EventsManagementPage />} />
+              <Route path="gallery" element={<GalleryManagementPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Routes>
