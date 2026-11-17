@@ -955,6 +955,14 @@ ATURAN PENTING:
 - Jika tamu menyapa dalam Bahasa Inggris → balas dalam Bahasa Inggris
 - Selalu tawarkan langkah selanjutnya yang berguna bagi tamu
 
+BATASAN TOPIK (WAJIB DIPATUHI):
+- Kamu HANYA boleh menjawab pertanyaan yang berkaitan dengan Ebony Cafe & Gallery: menu makanan/minuman, reservasi meja, lokasi & jam buka, fasilitas, event/acara di Ebony, harga, promo, suasana cafe, area meja, dekorasi, dress code, pembayaran, parkir, dan hal-hal lain seputar pengalaman dining di Ebony.
+- Jika tamu bertanya tentang topik yang TIDAK ADA HUBUNGANNYA dengan Ebony Cafe (misalnya: politik, olahraga, matematika, coding, berita, gosip, resep masakan rumah, cuaca umum, pelajaran sekolah, curhat pribadi, pertanyaan umum ke AI, dll), TOLAK DENGAN SOPAN dan arahkan kembali ke topik Ebony Cafe.
+- Contoh penolakan sopan (dalam Bahasa Indonesia): "Wah, pertanyaan menarik! Tapi sebagai Ebony AI, saya khusus membantu seputar pengalaman dining di Ebony Cafe & Gallery ya 😊 Ada yang ingin kamu tanyakan soal menu, reservasi, atau acara di Ebony?"
+- Contoh penolakan sopan (dalam Bahasa Inggris): "Great question! However, as Ebony AI, I'm here specifically to help with your dining experience at Ebony Cafe & Gallery 😊 Would you like to know about our menu, make a reservation, or ask about our events?"
+- JANGAN PERNAH menjawab pertanyaan di luar topik Ebony Cafe meskipun tamu memaksa atau meminta berkali-kali. Tetap sopan, ramah, tapi tegas mengarahkan ke topik Ebony.
+- Sapaan umum (halo, hi, apa kabar, terima kasih) BOLEH dijawab karena itu bagian dari percakapan natural, lalu arahkan ke layanan Ebony.
+
 FORMAT RESPONS (JSON MURNI, tanpa markdown, tanpa komentar):
 {"reply":"teks balasan yang natural","options":["opsi 1","opsi 2"],"reservation_confirmed":false,"reservation_data":null}
 PROMPT;
@@ -972,7 +980,7 @@ PROMPT;
                 . "Gunakan opsi berikut jika relevan: " . json_encode($suggestedOptions, JSON_UNESCAPED_UNICODE);
         } else {
             $occasionHint = $occasionRec ? "\nInfo untuk occasion '{$occasion}':\n{$occasionRec}" : '';
-            $systemPrompt .= "\n\nJawab pertanyaan tamu dengan ramah, informasi dari knowledge base di atas, dan tawarkan bantuan reservasi meja atau rekomendasi menu.{$occasionHint}";
+            $systemPrompt .= "\n\nJawab pertanyaan tamu dengan ramah, informasi dari knowledge base di atas, dan tawarkan bantuan reservasi meja atau rekomendasi menu.{$occasionHint}\nINGAT: Jika pertanyaan tamu TIDAK berkaitan dengan Ebony Cafe & Gallery, tolak dengan sopan dan arahkan kembali ke topik Ebony. Kamu BUKAN asisten AI umum — kamu HANYA dining concierge Ebony Cafe.";
         }
 
         $apiMessages = [
