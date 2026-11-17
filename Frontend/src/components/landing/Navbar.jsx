@@ -55,12 +55,6 @@ export default function Navbar() {
             )}
           </li>
         ))}
-        {/* Tombol Contact di dalam menu saat mode Mobile saja */}
-        <li className="navbar__menu-item navbar__menu-item--mobile-only">
-          <a href="#footer" className="btn btn--outline-light btn--sm" onClick={() => setMenuOpen(false)}>
-            CONTACT
-          </a>
-        </li>
       </ul>
 
       {/* Contact button — Desktop only */}

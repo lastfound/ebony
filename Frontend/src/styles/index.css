@@ -301,18 +301,6 @@
     .navbar__menu a:hover {
         color: var(--color-accent, #d4af37) !important;
     }
-    /* Tampilan khusus untuk tombol contact di dalam menu HP */
-    .navbar__menu-item--mobile-only {
-        margin-top: 30px !important;
-        /* Memberikan celah pemisah yang tegas dari RESERVATION */
-        width: 75%;
-    }
-    .navbar__menu-item--mobile-only a {
-        border: 1px solid #ffffff;
-        padding: 10px 0;
-        font-size: 14px;
-        border-radius: 4px;
-    }
 }
 
 
