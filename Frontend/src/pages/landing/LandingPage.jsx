@@ -17,13 +17,15 @@ const Footer = lazy(() => import('../../components/landing/Footer'));
 
 export default function LandingPage() {
   useEffect(() => {
-    // 🌟 Inisialisasi AOS yang hemat performa
+    // 🌟 Inisialisasi AOS yang hemat performa & anti-lag
     AOS.init({
-      duration: 700,
+      duration: 600,
       once: true,
       mirror: false,
-      offset: 50,
+      offset: 40,
       easing: 'ease-out-cubic',
+      throttleDelay: 99,
+      debounceDelay: 50,
     });
   }, []);
 

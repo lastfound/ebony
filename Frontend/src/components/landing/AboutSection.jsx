@@ -11,6 +11,7 @@ export default function AboutSection() {
   const [settings, setSettings] = useState(getLocalSiteSettings);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const sectionRef = useRef(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     const handleUpdate = (e) => {
@@ -23,22 +24,34 @@ export default function AboutSection() {
   }, []);
 
   // 🌟 PERFORMANCE OPTIMIZATION:
-  // Video & settings diambil HANYA saat pengguna mendekati section ini.
+  // 1. Video hanya mulai di-request saat section mendekati layar.
+  // 2. Video otomatis di-pause saat keluar viewport untuk menghemat GPU/CPU & memori.
+  // 3. Video otomatis di-resume saat terlihat kembali di layar.
   useEffect(() => {
     if (!sectionRef.current) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setShouldLoadVideo(true);
-          getSiteSettings().then((data) => {
-            if (data) setSettings(data);
-          });
-          observer.disconnect();
-        }
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setShouldLoadVideo(true);
+            if (videoRef.current) {
+              videoRef.current.play().catch(() => {});
+            }
+          } else {
+            if (videoRef.current) {
+              videoRef.current.pause();
+            }
+          }
+        });
       },
-      { rootMargin: '300px' }
+      { threshold: 0.1, rootMargin: '150px' }
     );
     observer.observe(sectionRef.current);
+
+    getSiteSettings().then((data) => {
+      if (data) setSettings(data);
+    });
+
     return () => observer.disconnect();
   }, []);
 
@@ -82,16 +95,21 @@ export default function AboutSection() {
         </div>
 
         {/* Video / Media */}
-        <div className="about__image" data-aos="fade-left" data-aos-delay="150" style={{ background: '#181212', borderRadius: '16px', overflow: 'hidden' }}>
-          <video
-            src={activeVideo}
-            autoPlay
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+        <div className="about__image" data-aos="fade-left" data-aos-delay="150" style={{ background: '#181212', borderRadius: '16px', overflow: 'hidden', minHeight: '350px' }}>
+          {shouldLoadVideo ? (
+            <video
+              ref={videoRef}
+              src={activeVideo}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', minHeight: '350px', background: '#181212' }} />
+          )}
         </div>
       </div>
     </section>
